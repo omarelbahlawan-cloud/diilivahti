@@ -1042,17 +1042,44 @@ function createMonitor(){
   const yearFrom = document.getElementById('cm-year-from').value;
   const yearTo = document.getElementById('cm-year-to').value;
   const loc = document.getElementById('cm-loc').value || 'Suomi';
-  const sources = Array.from(document.querySelectorAll('.cm-source:checked')).map(c=>c.value);
-  const quality = document.querySelector('input[name="cm-quality"]:checked')?.value || 'good';
-  const budget = (min?eur(Number(min)):'0 €') + ' – ' + (max?eur(Number(max)):'—');
+
+  const sources = Array.from(
+    document.querySelectorAll('.cm-source:checked')
+  ).map(c => c.value);
+
+  const quality =
+    document.querySelector('input[name="cm-quality"]:checked')?.value || 'good';
+
+  const budget =
+    (min ? eur(Number(min)) : '0 €') +
+    ' – ' +
+    (max ? eur(Number(max)) : '—');
+
   const monitor = {
-    id:'m'+Date.now(), name:kw, budget, maxPrice: max?Number(max):null, minPrice: min?Number(min):null,
-    yearFrom: yearFrom?Number(yearFrom):null, yearTo: yearTo?Number(yearTo):null,
-    loc, sources: sources.length?sources:['Tori'], quality, status:'Aktiivinen',
+    id: 'm' + Date.now(),
+    name: kw,
+    budget,
+    maxPrice: max ? Number(max) : null,
+    minPrice: min ? Number(min) : null,
+    yearFrom: yearFrom ? Number(yearFrom) : null,
+    yearTo: yearTo ? Number(yearTo) : null,
+    loc,
+    sources: sources.length ? sources : ['Tori'],
+    quality,
+    status: 'Aktiivinen',
   };
+
   state.monitors.unshift(monitor);
   saveMonitors(state.monitors);
-  showToast('✓ Diilivahti luotu');
+
+  const matches = findingsForMonitor(monitor);
+
+  if (matches.length) {
+    showToast(`✓ Diilivahti luotu – ${matches.length} sopivaa löytöä`);
+  } else {
+    showToast('✓ Diilivahti luotu – ei vielä sopivia löytöjä');
+  }
+
   location.hash = 'app/diilivahdit';
 }
 
