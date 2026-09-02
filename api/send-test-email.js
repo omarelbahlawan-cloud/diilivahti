@@ -8,20 +8,33 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { email } = req.body || {};
+    const { to, subject, example } = req.body || {};
 
-    if (!email) {
-      return res.status(400).json({ error: "Sähköpostiosoite puuttuu" });
+    if (!to) {
+      return res.status(400).json({
+        error: "Sähköpostiosoite puuttuu"
+      });
     }
+
+    const title = example?.title || "Diilivahti";
+    const price = example?.price || "";
+    const score = example?.score || "";
+    const note = example?.note || "";
+    const location = example?.location || "";
 
     const result = await resend.emails.send({
       from: "Diilivahti <onboarding@resend.dev>",
-      to: email,
-      subject: "Diilivahti – testisähköposti",
+      to: to,
+      subject: subject || "🔥 Testi-ilmoitus — Diilivahti",
       html: `
-        <h2>Diilivahti toimii! 🎉</h2>
+        <h2>🔥 Diilivahti – testi-ilmoitus</h2>
+        <h3>${title}</h3>
+        <p><strong>Hinta:</strong> ${price} €</p>
+        <p><strong>Diilipisteet:</strong> ${score}</p>
+        <p><strong>Arvio:</strong> ${note}</p>
+        <p><strong>Sijainti:</strong> ${location}</p>
+        <hr>
         <p>Tämä on Diilivahdin testisähköposti.</p>
-        <p>Backend → Vercel → Resend toimii.</p>
       `,
     });
 
@@ -29,11 +42,12 @@ module.exports = async (req, res) => {
       success: true,
       id: result.data?.id || null,
     });
+
   } catch (error) {
-    console.error(error);
+    console.error("Resend error:", error);
 
     return res.status(500).json({
-      error: "Sähköpostin lähetys epäonnistui",
+      error: "Sähköpostin lähetys epäonnistui"
     });
   }
 };
