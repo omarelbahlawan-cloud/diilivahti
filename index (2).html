@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diilivahti — Löydä hyvä diili ennen muita.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: '#0A0A0D', paper: '#FAFAF9', paper2: '#F1F0ED',
+          line: '#E6E5E1', linedark: '#26262C',
+          accent: '#4A4CFF', accent2: '#8C6CFF',
+          good: '#1E9E63', warn: '#DB6B2C', bad: '#D2483C',
+        },
+        fontFamily: {
+          display: ['"Instrument Sans"', 'sans-serif'],
+          sans: ['Inter', 'sans-serif'],
+          mono: ['"IBM Plex Mono"', 'monospace'],
+        },
+      }
+    }
+  }
+</script>
+<style>
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { background: #FAFAF9; color: #0A0A0D; }
+  .route { display: none; }
+  .route.active { display: block; }
+  .app-view { display: none; }
+  .app-view.active { display: block; }
+  ::selection { background: #4A4CFF; color: #fff; }
+
+  .stage {
+    background:
+      radial-gradient(ellipse 900px 500px at 15% 0%, rgba(74,76,255,0.20), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 90% 25%, rgba(140,108,255,0.14), transparent 60%),
+      #0A0A0D;
+  }
+  .glass { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(16px); }
+
+  #route-app { background:#0A0A0D; color:#F1F0ED;
+    --app-bg:#0A0A0D; --app-sidebar:#111114; --app-surface:#151519; --app-surface2:#1B1B20;
+    --app-border:#27272E; --app-text2:#9A9AA3; --app-text3:#65656E; }
+  .app-card { background: var(--app-surface); border: 1px solid var(--app-border); }
+  .app-text2 { color: var(--app-text2); } .app-text3 { color: var(--app-text3); } .app-border { border-color: var(--app-border); }
+
+  @keyframes floatY { 0%,100% { transform: translateY(0) rotate(var(--r,0deg)); } 50% { transform: translateY(-10px) rotate(var(--r,0deg)); } }
+  .float-slow { animation: floatY 6s ease-in-out infinite; }
+  .float-slower { animation: floatY 8s ease-in-out infinite; }
+  .live-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#FF5A5A; box-shadow:0 0 0 0 rgba(255,90,90,.5); animation:pulse 1.6s infinite; }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(255,90,90,.45);} 70%{box-shadow:0 0 0 9px rgba(255,90,90,0);} 100%{box-shadow:0 0 0 0 rgba(255,90,90,0);} }
+  @keyframes fadeUp { from{opacity:0; transform:translateY(16px);} to{opacity:1; transform:translateY(0);} }
+  .reveal { opacity:0; } .reveal.in { animation: fadeUp .6s ease both; }
+  .img-zoom { overflow:hidden; } .img-zoom img { transition: transform .5s ease; } .img-zoom:hover img { transform: scale(1.06); }
+  ::-webkit-scrollbar { width:8px; height:8px; } ::-webkit-scrollbar-thumb { background:#26262C; border-radius:8px; }
+  input[type="range"] { accent-color:#4A4CFF; }
+  .ring-progress { transform: rotate(-90deg); }
+
+  /* modal + toast */
+  #modal-root { position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center; padding:1rem; }
+  #modal-root.open { display:flex; }
+  #modal-backdrop { position:absolute; inset:0; background:rgba(6,6,8,0.7); backdrop-filter: blur(4px); }
+  #modal-panel { position:relative; max-width:560px; width:100%; max-height:88vh; overflow-y:auto; }
+  #toast-root { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:200; display:flex; flex-direction:column; gap:8px; align-items:center; }
+  .toast { background:#0A0A0D; color:#fff; border:1px solid #27272E; padding:12px 18px; border-radius:999px; font-size:14px; display:flex; align-items:center; gap:8px; animation: toastPop .25s ease both; max-width:90vw; text-align:left; }
+  @keyframes toastPop { from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+
+  .funnel-bar { transition: width 1s ease; }
+</style>
+</head>
+<body class="font-sans antialiased">
+
+<div id="route-landing" class="route">
+  <header id="main-nav" class="fixed top-0 left-0 right-0 z-50 transition-colors duration-300">
+    <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+      <a href="#landing" class="font-display font-semibold text-lg tracking-tight text-white flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-accent inline-block"></span> Diilivahti
+      </a>
+      <nav class="hidden md:flex items-center gap-8 text-sm text-white/70">
+        <a href="#landing-markkinat" class="hover:text-white">Markkinapaikat</a>
+        <a href="#landing-diilipiste" class="hover:text-white">Diilipiste</a>
+        <a href="#landing-hinnat" class="hover:text-white">Hinnat</a>
+        <a href="#landing-ukk" class="hover:text-white">UKK</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <a href="#login" class="text-sm text-white/70 hover:text-white hidden sm:block">Kirjaudu</a>
+        <a href="#signup" class="text-sm font-medium bg-white text-ink px-4 py-2.5 rounded-full hover:bg-accent hover:text-white transition-colors">Luo ilmainen vahti</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="stage relative overflow-hidden pt-40 pb-28 md:pt-48 md:pb-40">
+    <div class="max-w-7xl mx-auto px-6 relative">
+      <p class="text-xs font-mono tracking-[0.2em] text-accent2 mb-6">DIILIVAHTI</p>
+      <h1 class="font-display text-white text-5xl md:text-[5.2rem] leading-[0.98] tracking-tight font-medium max-w-4xl">
+        Löydä hyvä diili<br>ennen muita.
+      </h1>
+      <p class="mt-7 text-lg text-white/60 max-w-xl leading-relaxed">
+        Diilivahti seuraa puolestasi useita markkinapaikkoja ja kertoo, kun kiinnostava ilmoitus tai poikkeuksellisen hyvä hinta ilmestyy.
+      </p>
+      <div class="mt-9 flex flex-wrap items-center gap-4">
+        <a href="#signup" class="bg-accent text-white px-7 py-3.5 rounded-full font-medium hover:bg-accent2 transition-colors">Luo ilmainen vahti</a>
+        <a href="#landing-toiminta" class="px-7 py-3.5 rounded-full font-medium border border-white/20 text-white hover:border-white/50 transition-colors">Katso miten se toimii</a>
+      </div>
+
+      <div class="relative mt-20 md:mt-24 h-[440px] md:h-[500px]">
+        <div class="hidden md:block absolute left-0 top-4 w-60 glass rounded-2xl overflow-hidden float-slower" style="--r:-6deg">
+          <img src="https://commons.wikimedia.org/wiki/Special:FilePath/2021%20Black%20Yamaha%20MT-07.jpg?width=500" class="w-full h-28 object-cover opacity-80" alt="" onerror="this.parentElement.style.display='none'">
+          <div class="p-3"><p class="text-white text-xs">Nettimoto</p><p class="text-white text-sm font-medium">Yamaha MT-07</p><p class="text-white/50 text-xs font-mono">5 900 €</p></div>
+        </div>
+        <div class="hidden md:block absolute right-0 top-0 w-60 glass rounded-2xl overflow-hidden float-slow" style="--r:5deg">
+          <img src="https://commons.wikimedia.org/wiki/Special:FilePath/Sony%20a7%20IV%2033MP%20Mirrorless%20Digital%20Camera.jpg?width=500" class="w-full h-28 object-cover opacity-80" alt="" onerror="this.parentElement.style.display='none'">
+          <div class="p-3"><p class="text-white text-xs">Huuto.net</p><p class="text-white text-sm font-medium">Sony A7 IV</p><p class="text-white/50 text-xs font-mono">1 850 €</p></div>
+        </div>
+        <div class="hidden lg:block absolute right-10 bottom-0 w-56 glass rounded-2xl overflow-hidden float-slower" style="--r:-4deg">
+          <img src="https://commons.wikimedia.org/wiki/Special:FilePath/Rolex%20Datejust.JPG?width=500" class="w-full h-24 object-cover opacity-80" alt="" onerror="this.parentElement.style.display='none'">
+          <div class="p-3"><p class="text-white text-xs">Tori</p><p class="text-white text-sm font-medium">Rolex Datejust</p><p class="text-white/50 text-xs font-mono">4 300 €</p></div>
+        </div>
+
+        <div class="relative z-10 mx-auto w-full max-w-md glass rounded-3xl overflow-hidden shadow-2xl">
+          <div class="relative">
+            <img src="https://commons.wikimedia.org/wiki/Special:FilePath/1998-2001%20BMW%20318i%20(E46)%20sedan%2001.jpg?width=900" class="w-full h-64 object-cover" alt="BMW 330i">
+            <span class="absolute top-4 left-4 bg-warn text-white text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-1.5"><span class="live-dot"></span>Poikkeuksellinen diili</span>
+          </div>
+          <div class="p-6">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-white font-medium text-lg">BMW 330i</p>
+                <p class="text-white/50 text-sm mt-0.5">Nettiauto · Helsinki</p>
+              </div>
+              <p class="font-mono text-white text-xl">12 900 €</p>
+            </div>
+            <div class="flex items-center justify-between mt-4 border-t border-white/10 pt-4">
+              <div>
+                <p class="text-xs text-white/40">Arvioitu markkinahinta 15 500 €</p>
+                <p class="text-sm text-good font-mono mt-0.5">−16,8 % alle tyypillisen hinnan</p>
+              </div>
+              <div class="relative w-12 h-12 shrink-0">
+                <svg width="48" height="48" style="transform:rotate(-90deg)">
+                  <circle cx="24" cy="24" r="20" stroke="rgba(255,255,255,0.15)" stroke-width="4" fill="none"/>
+                  <circle cx="24" cy="24" r="20" stroke="#1E9E63" stroke-width="4" fill="none" stroke-dasharray="125.6" stroke-dashoffset="7.5" stroke-linecap="round"/>
+                </svg>
+                <div class="absolute inset-0 flex items-center justify-center text-white text-[11px] font-mono">94</div>
+              </div>
+            </div>
+            <p class="text-xs text-white/30 mt-3 font-mono">Julkaistu 2 min sitten</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MULTI-MARKETPLACE -->
+  <section id="landing-markkinat" class="max-w-7xl mx-auto px-6 py-24">
+    <h2 class="font-display text-4xl font-medium tracking-tight mb-4 max-w-lg">Yksi vahti. Useita markkinapaikkoja.</h2>
+    <p class="text-ink/60 max-w-lg mb-12">Sinun ei tarvitse tarkistaa jokaista palvelua erikseen — Diilivahti kokoaa osumat yhteen näkymään.</p>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div class="border border-line rounded-2xl p-5 relative"><span class="absolute top-3 right-3 text-[10px] font-mono text-ink/30 bg-paper2 px-2 py-0.5 rounded-full">DEMO</span><p class="font-display text-lg">Tori</p><p class="text-xs text-ink/50 mt-1">Yleismarkkinapaikka</p></div>
+      <div class="border border-line rounded-2xl p-5 relative"><span class="absolute top-3 right-3 text-[10px] font-mono text-ink/30 bg-paper2 px-2 py-0.5 rounded-full">DEMO</span><p class="font-display text-lg">Nettiauto</p><p class="text-xs text-ink/50 mt-1">Autot</p></div>
+      <div class="border border-line rounded-2xl p-5 relative"><span class="absolute top-3 right-3 text-[10px] font-mono text-ink/30 bg-paper2 px-2 py-0.5 rounded-full">DEMO</span><p class="font-display text-lg">Nettimoto</p><p class="text-xs text-ink/50 mt-1">Moottoripyörät</p></div>
+      <div class="border border-line rounded-2xl p-5 relative"><span class="absolute top-3 right-3 text-[10px] font-mono text-ink/30 bg-paper2 px-2 py-0.5 rounded-full">DEMO</span><p class="font-display text-lg">Huuto.net</p><p class="text-xs text-ink/50 mt-1">Huutokaupat</p></div>
+      <div class="border border-line rounded-2xl p-5 relative"><span class="absolute top-3 right-3 text-[10px] font-mono text-ink/30 bg-paper2 px-2 py-0.5 rounded-full">DEMO</span><p class="font-display text-lg">Muut</p><p class="text-xs text-ink/50 mt-1">Lisää lähteitä myöhemmin</p></div>
+    </div>
+    <p class="text-xs text-ink/40 max-w-lg">Tässä demossa markkinapaikat ja niiden data ovat esimerkkejä. Tuetut lähteet riippuvat aina saatavilla olevista rajapinnoista ja niiden käyttöehdoista.</p>
+  </section>
+
+  <!-- ONE SEARCH, MANY MARKETS — interactive demo -->
+  <section class="bg-paper2 py-24">
+    <div class="max-w-4xl mx-auto px-6 text-center">
+      <h2 class="font-display text-4xl font-medium tracking-tight mb-4">Yksi haku. Useita markkinoita.</h2>
+      <p class="text-ink/60 mb-10 max-w-lg mx-auto">Kirjoita mitä etsit ja käynnistä demo — näin Diilivahti käsittelee hakusi taustalla esimerkkidatalla.</p>
+      <div class="bg-white border border-line rounded-2xl p-8 text-left">
+        <p class="font-mono text-sm text-ink/50 mb-1">Haku</p>
+        <input id="demo-search" value="Kawasaki Ninja 500" placeholder="Esim. Kawasaki Ninja 500" class="w-full font-display text-2xl mb-1 bg-transparent border-b border-line focus:outline-none focus:border-ink pb-2">
+        <p class="text-xs text-ink/40 mb-6">Kokeile myös esim. "BMW", "Sony A7", "Aeron" tai "Rolex".</p>
+        <button id="demo-start" onclick="runLiveDemo()" class="bg-ink text-white rounded-full px-6 py-3 text-sm font-medium hover:bg-accent transition-colors mb-8">Käynnistä demo</button>
+        <div id="demo-output" class="space-y-3 min-h-[40px]"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DEAL SCORE -->
+  <section id="landing-diilipiste" class="max-w-7xl mx-auto px-6 py-24">
+    <h2 class="font-display text-4xl font-medium tracking-tight mb-4 max-w-lg">Diilipiste kertoo, kannattaako avata.</h2>
+    <p class="text-ink/60 max-w-xl mb-14">Jokainen löytö pisteytetään 0–100 välillä hinnan, iän, kunnon, sijainnin ja hakuehtojesi perusteella.</p>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div class="border border-line rounded-2xl p-6 text-center">
+        <div class="relative w-20 h-20 mx-auto mb-4">
+          <svg width="80" height="80" style="transform:rotate(-90deg)"><circle cx="40" cy="40" r="34" stroke="#F1F0ED" stroke-width="7" fill="none"/><circle cx="40" cy="40" r="34" stroke="#1E9E63" stroke-width="7" fill="none" stroke-dasharray="213.6" stroke-dashoffset="12.8" stroke-linecap="round"/></svg>
+          <div class="absolute inset-0 flex items-center justify-center font-mono font-medium">94</div>
+        </div>
+        <p class="font-medium text-good">Poikkeuksellisen hyvä diili</p>
+      </div>
+      <div class="border border-line rounded-2xl p-6 text-center">
+        <div class="relative w-20 h-20 mx-auto mb-4">
+          <svg width="80" height="80" style="transform:rotate(-90deg)"><circle cx="40" cy="40" r="34" stroke="#F1F0ED" stroke-width="7" fill="none"/><circle cx="40" cy="40" r="34" stroke="#1E9E63" stroke-width="7" fill="none" stroke-dasharray="213.6" stroke-dashoffset="38.5" stroke-linecap="round"/></svg>
+          <div class="absolute inset-0 flex items-center justify-center font-mono font-medium">82</div>
+        </div>
+        <p class="font-medium text-good">Hyvä diili</p>
+      </div>
+      <div class="border border-line rounded-2xl p-6 text-center">
+        <div class="relative w-20 h-20 mx-auto mb-4">
+          <svg width="80" height="80" style="transform:rotate(-90deg)"><circle cx="40" cy="40" r="34" stroke="#F1F0ED" stroke-width="7" fill="none"/><circle cx="40" cy="40" r="34" stroke="#DB6B2C" stroke-width="7" fill="none" stroke-dasharray="213.6" stroke-dashoffset="70.5" stroke-linecap="round"/></svg>
+          <div class="absolute inset-0 flex items-center justify-center font-mono font-medium">67</div>
+        </div>
+        <p class="font-medium text-warn">Normaali</p>
+      </div>
+      <div class="border border-line rounded-2xl p-6 text-center">
+        <div class="relative w-20 h-20 mx-auto mb-4">
+          <svg width="80" height="80" style="transform:rotate(-90deg)"><circle cx="40" cy="40" r="34" stroke="#F1F0ED" stroke-width="7" fill="none"/><circle cx="40" cy="40" r="34" stroke="#D2483C" stroke-width="7" fill="none" stroke-dasharray="213.6" stroke-dashoffset="126" stroke-linecap="round"/></svg>
+          <div class="absolute inset-0 flex items-center justify-center font-mono font-medium">41</div>
+        </div>
+        <p class="font-medium text-bad">Ei erityisen kiinnostava</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICE ANALYSIS -->
+  <section class="bg-ink text-white py-24">
+    <div class="max-w-5xl mx-auto px-6">
+      <h2 class="font-display text-4xl font-medium tracking-tight mb-4">Onko tämä oikeasti hyvä diili?</h2>
+      <p class="text-white/50 max-w-lg mb-12">Jokaisen löydön kohdalla näet, miten hinta suhteutuu vastaaviin ilmoituksiin.</p>
+      <div class="grid md:grid-cols-2 gap-10 items-center">
+        <div>
+          <p class="font-display text-2xl mb-6">BMW 330i</p>
+          <div class="space-y-4">
+            <div class="flex justify-between border-b border-white/10 pb-3"><span class="text-white/50 text-sm">Ilmoituksen hinta</span><span class="font-mono">12 900 €</span></div>
+            <div class="flex justify-between border-b border-white/10 pb-3"><span class="text-white/50 text-sm">Tyypillinen markkinahinta</span><span class="font-mono">15 500 €</span></div>
+            <div class="flex justify-between border-b border-white/10 pb-3"><span class="text-white/50 text-sm">Erotus</span><span class="font-mono text-good">−2 600 €</span></div>
+            <div class="flex justify-between"><span class="text-white/50 text-sm">Diilipiste</span><span class="font-mono">94 / 100</span></div>
+          </div>
+          <p class="text-sm text-white/70 mt-6 leading-relaxed">"Tämä ilmoitus on noin 17 % alle vastaavien ilmoitusten tyypillisen hinnan."</p>
+        </div>
+        <div class="glass rounded-2xl p-6">
+          <p class="text-xs font-mono text-white/40 mb-4 uppercase tracking-wide">Hintajakauma — vastaavat ilmoitukset</p>
+          <svg viewBox="0 0 300 140" class="w-full h-40">
+            <rect x="10" y="70" width="30" height="60" fill="#27272E"/>
+            <rect x="50" y="50" width="30" height="80" fill="#27272E"/>
+            <rect x="90" y="30" width="30" height="100" fill="#27272E"/>
+            <rect x="130" y="20" width="30" height="110" fill="#27272E"/>
+            <rect x="170" y="10" width="30" height="120" fill="#4A4CFF"/>
+            <rect x="210" y="40" width="30" height="90" fill="#27272E"/>
+            <rect x="250" y="60" width="30" height="70" fill="#27272E"/>
+            <line x1="185" y1="0" x2="185" y2="140" stroke="#8C6CFF" stroke-width="1.5" stroke-dasharray="4 3"/>
+          </svg>
+          <div class="flex justify-between text-[11px] font-mono text-white/40 mt-2"><span>12 000 €</span><span class="text-accent2">Tämä ilmoitus</span><span>17 000 €</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="landing-toiminta" class="max-w-7xl mx-auto px-6 py-24">
+    <h2 class="font-display text-4xl font-medium tracking-tight mb-16">Kolme vaihetta.</h2>
+    <div class="grid md:grid-cols-3 gap-10">
+      <div><span class="font-mono text-sm text-accent">01</span><h3 class="font-display text-2xl mt-4 mb-3">Kerro mitä etsit</h3><div class="bg-paper2 rounded-xl p-4 text-sm font-mono text-ink/60">"BMW 330i, alle 15 000 €, Suomi"</div></div>
+      <div><span class="font-mono text-sm text-accent">02</span><h3 class="font-display text-2xl mt-4 mb-3">Me seuraamme markkinoita</h3><div class="bg-paper2 rounded-xl p-4 text-sm text-ink/60">Useita lähteitä samanaikaisesti, esimerkkidatalla tässä demossa.</div></div>
+      <div><span class="font-mono text-sm text-accent">03</span><h3 class="font-display text-2xl mt-4 mb-3">Saat vain kiinnostavat löydöt</h3><div class="bg-paper2 rounded-xl p-4 text-sm text-ink/60">Diilipiste ja hinta-analyysi kertovat heti, mikä kannattaa avata.</div></div>
+    </div>
+  </section>
+
+  <!-- AVOID NOISE FUNNEL -->
+  <section class="bg-paper2 py-24">
+    <div class="max-w-3xl mx-auto px-6">
+      <h2 class="font-display text-4xl font-medium tracking-tight mb-4">Et tarvitse sataa ilmoitusta.<br>Tarvitset oikean.</h2>
+      <p class="text-ink/60 mb-12">Näin 147 ilmoituksesta jää jäljelle 7 kiinnostavaa diiliä.</p>
+      <div class="space-y-3">
+        <div><div class="flex justify-between text-sm mb-1"><span>Ilmoituksia löytyi</span><span class="font-mono">147</span></div><div class="h-3 bg-line rounded-full overflow-hidden"><div class="funnel-bar h-full bg-ink rounded-full" style="width:100%"></div></div></div>
+        <div><div class="flex justify-between text-sm mb-1"><span>Duplikaatit poistettu</span><span class="font-mono">92</span></div><div class="h-3 bg-line rounded-full overflow-hidden"><div class="funnel-bar h-full bg-ink rounded-full" style="width:63%"></div></div></div>
+        <div><div class="flex justify-between text-sm mb-1"><span>Hakuehdot tarkistettu</span><span class="font-mono">31</span></div><div class="h-3 bg-line rounded-full overflow-hidden"><div class="funnel-bar h-full bg-ink rounded-full" style="width:21%"></div></div></div>
+        <div><div class="flex justify-between text-sm mb-1"><span>Hintataso analysoitu</span><span class="font-mono">7</span></div><div class="h-3 bg-line rounded-full overflow-hidden"><div class="funnel-bar h-full bg-accent rounded-full" style="width:5%"></div></div></div>
+      </div>
+      <p class="mt-8 font-display text-2xl">7 kiinnostavaa diiliä.</p>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section id="landing-hinnat" class="max-w-7xl mx-auto px-6 py-28 border-t border-line">
+    <div class="flex flex-wrap items-end justify-between gap-6 mb-14">
+      <h2 class="font-display text-4xl font-medium tracking-tight">Selkeä hinnoittelu.</h2>
+      <div class="flex items-center gap-3 bg-paper2 border border-line rounded-full p-1">
+        <button id="billing-monthly" class="px-4 py-1.5 rounded-full text-sm font-medium bg-ink text-white">Kuukausi</button>
+        <button id="billing-annual" class="px-4 py-1.5 rounded-full text-sm font-medium text-ink/60">Vuosi <span class="text-good">−20 %</span></button>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="border border-line rounded-2xl p-8">
+        <p class="font-display text-lg mb-1">Ilmainen</p>
+        <p class="mb-6"><span class="font-display text-3xl price-m">0 €</span><span class="price-a hidden font-display text-3xl">0 €</span><span class="text-ink/50 text-sm">/kk</span></p>
+        <ul class="space-y-2.5 text-sm text-ink/70 mb-8"><li>2 diilivahtia</li><li>Perusseuranta</li><li>Sähköposti-ilmoitukset</li><li>Perussuodattimet</li></ul>
+        <a href="#signup" class="block text-center border border-line rounded-full py-2.5 text-sm font-medium hover:border-ink">Aloita ilmaiseksi</a>
+      </div>
+      <div class="border-2 border-accent rounded-2xl p-8 relative bg-ink text-white">
+        <span class="absolute -top-3 left-8 bg-accent text-white text-xs font-medium px-3 py-1 rounded-full">Suosituin</span>
+        <p class="font-display text-lg mb-1">Pro</p>
+        <p class="mb-6"><span class="font-display text-3xl price-m">9,90 €</span><span class="price-a hidden font-display text-3xl">7,90 €</span><span class="text-white/50 text-sm">/kk</span></p>
+        <ul class="space-y-2.5 text-sm text-white/70 mb-8"><li>20 diilivahtia</li><li>Nopeampi seuranta</li><li>Push-ilmoitukset</li><li>Hintahälytykset</li><li>Diilipisteet</li><li>Useita markkinapaikkoja</li></ul>
+        <a href="#signup" class="block text-center bg-accent text-white rounded-full py-2.5 text-sm font-medium hover:bg-accent2">Aloita ilmainen kokeilu</a>
+      </div>
+      <div class="border border-line rounded-2xl p-8">
+        <p class="font-display text-lg mb-1">Pro+</p>
+        <p class="mb-6"><span class="font-display text-3xl price-m">19,90 €</span><span class="price-a hidden font-display text-3xl">15,90 €</span><span class="text-ink/50 text-sm">/kk</span></p>
+        <ul class="space-y-2.5 text-sm text-ink/70 mb-8"><li>Rajattomat diilivahdit</li><li>Kehittyneet suodattimet</li><li>Priorisoitu seuranta</li><li>Edistyksellinen hinta-analyysi</li><li>Kaikki ilmoituskanavat</li></ul>
+        <a href="#signup" class="block text-center border border-line rounded-full py-2.5 text-sm font-medium hover:border-ink">Aloita ilmainen kokeilu</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="landing-ukk" class="max-w-7xl mx-auto px-6 py-24 border-t border-line">
+    <h2 class="font-display text-4xl font-medium tracking-tight mb-14">Kysyttyä</h2>
+    <div class="max-w-2xl divide-y divide-line border-t border-b border-line">
+      <div class="faq-item py-5"><button class="faq-q w-full text-left flex items-center justify-between font-medium">Miten diilipiste lasketaan?<span class="faq-icon text-ink/40">+</span></button><p class="faq-a hidden mt-3 text-sm text-ink/60 leading-relaxed">Diilipiste perustuu hintaan suhteessa vastaaviin ilmoituksiin, ilmoituksen ikään, tuotteen kuntoon, sijaintiin ja hakuehtoihisi. Tässä demossa laskenta on yksinkertaistettu esimerkki.</p></div>
+      <div class="faq-item py-5"><button class="faq-q w-full text-left flex items-center justify-between font-medium">Ovatko markkinapaikat oikeasti integroitu?<span class="faq-icon text-ink/40">+</span></button><p class="faq-a hidden mt-3 text-sm text-ink/60 leading-relaxed">Tämä on tuotedemo esimerkkidatalla. Tuetut lähteet riippuvat aina saatavilla olevista rajapinnoista ja niiden käyttöehdoista.</p></div>
+      <div class="faq-item py-5"><button class="faq-q w-full text-left flex items-center justify-between font-medium">Voinko perua tilauksen koska tahansa?<span class="faq-icon text-ink/40">+</span></button><p class="faq-a hidden mt-3 text-sm text-ink/60 leading-relaxed">Kyllä, tilauksen voi perua koska tahansa Asetuksista. Tilaus pysyy voimassa kuluvan jakson loppuun.</p></div>
+      <div class="faq-item py-5"><button class="faq-q w-full text-left flex items-center justify-between font-medium">Onko mobiilisovellusta?<span class="faq-icon text-ink/40">+</span></button><p class="faq-a hidden mt-3 text-sm text-ink/60 leading-relaxed">Diilivahti toimii responsiivisena verkkosovelluksena kaikilla laitteilla. Natiivi sovellus on suunnitteilla.</p></div>
+    </div>
+  </section>
+
+  <section class="stage py-28 text-center">
+    <div class="max-w-3xl mx-auto px-6">
+      <h2 class="font-display text-white text-4xl md:text-5xl font-medium tracking-tight leading-tight">Sinä kerrot mitä haluat.<br>Me etsimme diilin.</h2>
+      <a href="#signup" class="mt-9 inline-block bg-accent text-white px-8 py-4 rounded-full font-medium hover:bg-accent2 transition-colors">Luo ilmainen vahti</a>
+    </div>
+  </section>
+
+  <footer class="bg-ink text-white/50">
+    <div class="max-w-7xl mx-auto px-6 py-10 text-sm">
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+        <span class="text-white font-display">Diilivahti</span>
+        <div class="flex gap-6"><a href="#" class="hover:text-white">Tietosuoja</a><a href="#" class="hover:text-white">Käyttöehdot</a></div>
+      </div>
+      <p class="text-xs max-w-2xl">Diilivahti on itsenäinen palvelu eikä ole markkinapaikkojen omistama tai ylläpitämä. Oikeassa tuotantoversiossa tietolähteitä käytetään vain niiden sallimilla tavoilla. Tämän sivuston ilmoitukset, käyttäjät ja tilastot ovat esimerkkidataa.</p>
+    </div>
+  </footer>
+</div>
+<div id="route-signup" class="route">
+  <div class="min-h-screen grid md:grid-cols-2">
+    <div class="hidden md:flex flex-col justify-between p-10 stage text-white">
+      <a href="#landing" class="font-display font-semibold text-lg tracking-tight flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-accent inline-block"></span> Diilivahti</a>
+      <div><p class="font-display text-3xl leading-snug max-w-sm">Sinä kerrot mitä haluat.<br>Me etsimme diilin.</p></div>
+      <p class="text-xs text-white/30 font-mono">Esimerkkidataa demoa varten</p>
+    </div>
+    <div class="flex items-center justify-center p-8">
+      <div class="w-full max-w-sm">
+        <h1 class="font-display text-2xl font-medium mb-1">Luo tili</h1>
+        <p class="text-ink/60 text-sm mb-8">Kaksi diilivahtia ikuisesti ilmaiseksi.</p>
+        <div class="space-y-3 mb-6">
+          <button class="w-full border border-line rounded-full py-3 text-sm font-medium hover:border-ink">Jatka Googlella</button>
+          <button class="w-full border border-line rounded-full py-3 text-sm font-medium hover:border-ink">Jatka Applella</button>
+        </div>
+        <div class="flex items-center gap-3 my-6"><span class="h-px flex-1 bg-line"></span><span class="text-xs text-ink/40">tai</span><span class="h-px flex-1 bg-line"></span></div>
+        <form class="space-y-3" onsubmit="event.preventDefault(); location.hash='app/yleiskatsaus';">
+          <input required type="email" placeholder="nimi@esimerkki.fi" class="w-full border border-line rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-ink">
+          <input required type="password" placeholder="Luo salasana" class="w-full border border-line rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-ink">
+          <button class="w-full bg-ink text-white rounded-full py-3 text-sm font-medium hover:bg-accent">Luo tili</button>
+        </form>
+        <p class="text-sm text-ink/60 mt-6">Onko sinulla jo tili? <a href="#login" class="text-accent font-medium">Kirjaudu</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="route-login" class="route">
+  <div class="min-h-screen grid md:grid-cols-2">
+    <div class="hidden md:flex flex-col justify-between p-10 stage text-white">
+      <a href="#landing" class="font-display font-semibold text-lg tracking-tight flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-accent inline-block"></span> Diilivahti</a>
+      <div><p class="font-display text-3xl leading-snug max-w-sm">Tervetuloa takaisin.</p></div>
+      <p class="text-xs text-white/30 font-mono">Esimerkkidataa demoa varten</p>
+    </div>
+    <div class="flex items-center justify-center p-8">
+      <div class="w-full max-w-sm">
+        <h1 class="font-display text-2xl font-medium mb-1">Kirjaudu sisään</h1>
+        <p class="text-ink/60 text-sm mb-8">Jatka siitä, mihin diilivahtisi jäivät.</p>
+        <div class="space-y-3 mb-6">
+          <button class="w-full border border-line rounded-full py-3 text-sm font-medium hover:border-ink">Jatka Googlella</button>
+          <button class="w-full border border-line rounded-full py-3 text-sm font-medium hover:border-ink">Jatka Applella</button>
+        </div>
+        <div class="flex items-center gap-3 my-6"><span class="h-px flex-1 bg-line"></span><span class="text-xs text-ink/40">tai</span><span class="h-px flex-1 bg-line"></span></div>
+        <form class="space-y-3" onsubmit="event.preventDefault(); location.hash='app/yleiskatsaus';">
+          <input required type="email" placeholder="nimi@esimerkki.fi" class="w-full border border-line rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-ink">
+          <input required type="password" placeholder="Salasana" class="w-full border border-line rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-ink">
+          <div class="text-right"><a href="#forgot" class="text-xs text-accent">Unohtuiko salasana?</a></div>
+          <button class="w-full bg-ink text-white rounded-full py-3 text-sm font-medium hover:bg-accent">Kirjaudu</button>
+        </form>
+        <p class="text-sm text-ink/60 mt-6">Ei vielä tiliä? <a href="#signup" class="text-accent font-medium">Luo ilmainen vahti</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="route-forgot" class="route">
+  <div class="min-h-screen flex items-center justify-center p-8">
+    <div class="w-full max-w-sm text-center">
+      <a href="#landing" class="font-display font-semibold text-lg tracking-tight flex items-center justify-center gap-2 mb-10"><span class="w-2 h-2 rounded-full bg-accent inline-block"></span> Diilivahti</a>
+      <h1 class="font-display text-2xl font-medium mb-1">Salasanan palautus</h1>
+      <p class="text-ink/60 text-sm mb-8">Lähetämme sähköpostiisi palautuslinkin.</p>
+      <form class="space-y-3 text-left" onsubmit="event.preventDefault(); this.innerHTML='<p class=\'text-sm text-good text-center py-4\'>Tarkista sähköpostisi.</p>';">
+        <input required type="email" placeholder="nimi@esimerkki.fi" class="w-full border border-line rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-ink">
+        <button class="w-full bg-ink text-white rounded-full py-3 text-sm font-medium hover:bg-accent">Lähetä palautuslinkki</button>
+      </form>
+      <p class="text-sm text-ink/60 mt-6"><a href="#login" class="text-accent font-medium">Takaisin kirjautumiseen</a></p>
+    </div>
+  </div>
+</div>
+<div id="route-app" class="route">
+  <div class="min-h-screen md:flex">
+    <aside class="hidden md:flex w-64 shrink-0 flex-col h-screen sticky top-0" style="background:var(--app-sidebar); border-right:1px solid var(--app-border);">
+      <a href="#landing" class="px-6 h-16 flex items-center font-display font-semibold tracking-tight gap-2" style="border-bottom:1px solid var(--app-border);"><span class="w-2 h-2 rounded-full bg-accent inline-block"></span> Diilivahti</a>
+      <nav class="flex-1 px-3 py-4 space-y-1 text-sm" id="app-nav">
+        <a data-app-route="yleiskatsaus" href="#app/yleiskatsaus" class="app-nav-link flex items-center gap-3 px-3 py-2 rounded-lg app-text2">Yleiskatsaus</a>
+        <a data-app-route="diilivahdit" href="#app/diilivahdit" class="app-nav-link flex items-center gap-3 px-3 py-2 rounded-lg app-text2">Diilivahdit</a>
+        <a data-app-route="loydot" href="#app/loydot" class="app-nav-link flex items-center gap-3 px-3 py-2 rounded-lg app-text2">Löydöt</a>
+        <a data-app-route="suosikit" href="#app/suosikit" class="app-nav-link flex items-center gap-3 px-3 py-2 rounded-lg app-text2">Suosikit</a>
+        <a data-app-route="hintaseuranta" href="#app/hintaseuranta" class="app-nav-link flex items-center gap-3 px-3 py-2 rounded-lg app-text2">Hintaseuranta</a>
+        <a data-app-route="historia" href="#app/historia" class="app-nav-link flex items-center gap-3 px-3 py-2 rounded-lg app-text2">Historia</a>
+        <a data-app-route="analytiikka" href="#app/analytiikka" class="app-nav-link flex items-center gap-3 px-3 py-2 rounded-lg app-text2">Analytiikka</a>
+        <a data-app-route="asetukset" href="#app/asetukset" class="app-nav-link flex items-center gap-3 px-3 py-2 rounded-lg app-text2">Asetukset</a>
+      </nav>
+      <div class="p-3" style="border-top:1px solid var(--app-border);">
+        <a href="#app/luo-vahti" class="w-full bg-accent text-white rounded-full py-2.5 text-sm font-medium flex items-center justify-center hover:bg-accent2">+ Luo uusi diilivahti</a>
+      </div>
+    </aside>
+
+    <div class="flex-1 min-w-0 pb-16 md:pb-0">
+      <header class="h-16 flex items-center justify-between px-4 md:px-8 sticky top-0 z-40" style="background:var(--app-bg); border-bottom:1px solid var(--app-border);">
+        <input placeholder="Hae löytöjä, vahteja…" class="bg-transparent text-sm focus:outline-none flex-1 max-w-sm app-text2">
+        <div class="flex items-center gap-4">
+          <a href="#app/loydot" class="relative app-text2 text-sm">Löydöt<span class="absolute -top-2 -right-3 bg-accent text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">3</span></a>
+          <div class="w-8 h-8 rounded-full bg-accent text-white text-xs flex items-center justify-center font-medium">AK</div>
+        </div>
+      </header>
+
+      <main class="p-4 md:p-8 max-w-6xl">
+
+        <!-- YLEISKATSAUS -->
+        <section id="view-yleiskatsaus" class="app-view">
+          <h1 class="font-display text-2xl font-medium mb-1">Hyvää huomenta, Alex.</h1>
+          <p id="yk-sub" class="app-text2 text-sm mb-8">Sinulle löytyi 7 kiinnostavaa löytöä.</p>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+            <div class="app-card rounded-2xl p-4"><p class="text-xs app-text3 mb-1">Aktiiviset diilivahdit</p><p id="stat-monitors" class="font-display text-2xl">7</p></div>
+            <div class="app-card rounded-2xl p-4"><p class="text-xs app-text3 mb-1">Uudet löydöt</p><p class="font-display text-2xl">23</p></div>
+            <div class="app-card rounded-2xl p-4"><p class="text-xs app-text3 mb-1">Hyvät diilit</p><p class="font-display text-2xl text-good">8</p></div>
+            <div class="app-card rounded-2xl p-4"><p class="text-xs app-text3 mb-1">Poikkeukselliset diilit</p><p class="font-display text-2xl text-good">3</p></div>
+          </div>
+          <div class="flex items-center justify-between mb-4"><h2 class="font-display text-lg">Parhaat löydöt sinulle</h2><a href="#app/loydot" class="text-sm text-accent">Näytä kaikki</a></div>
+          <div id="best-finds" class="grid md:grid-cols-2 gap-4"></div>
+        </section>
+
+        <!-- DIILIVAHDIT -->
+        <section id="view-diilivahdit" class="app-view">
+          <div class="flex items-center justify-between mb-8">
+            <div><h1 class="font-display text-2xl font-medium mb-1">Diilivahdit</h1><p class="app-text2 text-sm"><span id="dv-count">7</span> / 20 käytössä Pro-tilauksellasi.</p></div>
+            <a href="#app/luo-vahti" class="bg-accent text-white rounded-full px-5 py-2.5 text-sm font-medium hover:bg-accent2">+ Uusi diilivahti</a>
+          </div>
+          <div id="monitors-list" class="grid md:grid-cols-2 gap-4"></div>
+        </section>
+
+        <!-- LUO VAHTI -->
+        <section id="view-luo-vahti" class="app-view">
+          <h1 class="font-display text-2xl font-medium mb-1">Mitä etsit?</h1>
+          <p class="app-text2 text-sm mb-8">Vahti on käytössä heti tallennuksen jälkeen.</p>
+          <div class="grid md:grid-cols-[1fr_320px] gap-8">
+            <div class="space-y-8">
+              <input id="cm-keyword" placeholder="Esim. Kawasaki Ninja 500" value="Kawasaki Ninja 500" class="w-full app-card rounded-xl px-5 py-4 text-lg font-display focus:outline-none" oninput="renderPreview()">
+
+              <div>
+                <p class="text-xs font-mono app-text3 mb-3 uppercase tracking-wide">Budjetti</p>
+                <div class="grid grid-cols-2 gap-3">
+                  <input id="cm-min" type="number" placeholder="Min €" value="" class="app-card rounded-lg px-4 py-3 text-sm focus:outline-none" oninput="renderPreview()">
+                  <input id="cm-max" type="number" placeholder="Max €" value="7000" class="app-card rounded-lg px-4 py-3 text-sm focus:outline-none" oninput="renderPreview()">
+                </div>
+              </div>
+
+              <div>
+                <p class="text-xs font-mono app-text3 mb-3 uppercase tracking-wide">Sijainti</p>
+                <div class="space-y-3">
+                  <input id="cm-loc" value="Suomi" class="w-full app-card rounded-lg px-4 py-3 text-sm focus:outline-none" oninput="renderPreview()">
+                  <div><div class="flex justify-between text-sm mb-1"><span class="app-text2">Säde</span><span id="cm-radius-val" class="font-mono">100 km</span></div><input type="range" min="5" max="500" value="100" class="w-full" oninput="document.getElementById('cm-radius-val').textContent=this.value+' km'; renderPreview()"></div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-6">
+                <div><p class="text-xs font-mono app-text3 mb-3 uppercase tracking-wide">Vuosimalli</p><div class="flex items-center gap-2"><input id="cm-year-from" value="2024" class="w-full app-card rounded-lg px-3 py-3 text-sm focus:outline-none" oninput="renderPreview()"><span class="app-text3">→</span><input id="cm-year-to" value="2026" class="w-full app-card rounded-lg px-3 py-3 text-sm focus:outline-none" oninput="renderPreview()"></div></div>
+                <div><p class="text-xs font-mono app-text3 mb-3 uppercase tracking-wide">Kilometrit</p><div class="flex items-center gap-2"><input value="0" class="w-full app-card rounded-lg px-3 py-3 text-sm focus:outline-none"><span class="app-text3">→</span><input value="30 000" class="w-full app-card rounded-lg px-3 py-3 text-sm focus:outline-none"></div></div>
+              </div>
+
+              <div>
+                <p class="text-xs font-mono app-text3 mb-3 uppercase tracking-wide">Markkinapaikat</p>
+                <div class="flex flex-wrap gap-2">
+                  <label class="flex items-center gap-2 app-card rounded-full px-4 py-2 text-sm cursor-pointer"><input type="checkbox" class="cm-source" value="Tori" checked onchange="renderPreview()"> Tori</label>
+                  <label class="flex items-center gap-2 app-card rounded-full px-4 py-2 text-sm cursor-pointer"><input type="checkbox" class="cm-source" value="Nettimoto" checked onchange="renderPreview()"> Nettimoto</label>
+                  <label class="flex items-center gap-2 app-card rounded-full px-4 py-2 text-sm cursor-pointer"><input type="checkbox" class="cm-source" value="Nettiauto" checked onchange="renderPreview()"> Nettiauto</label>
+                  <label class="flex items-center gap-2 app-card rounded-full px-4 py-2 text-sm cursor-pointer"><input type="checkbox" class="cm-source" value="Muut" onchange="renderPreview()"> Muut</label>
+                </div>
+              </div>
+
+              <div>
+                <p class="text-xs font-mono app-text3 mb-3 uppercase tracking-wide">Mitä haluat löytää?</p>
+                <div class="space-y-2 text-sm">
+                  <label class="flex items-center gap-2"><input type="radio" name="cm-quality" value="all" onchange="renderPreview()"> Kaikki sopivat</label>
+                  <label class="flex items-center gap-2"><input type="radio" name="cm-quality" value="good" checked onchange="renderPreview()"> Vain hyvät diilit</label>
+                  <label class="flex items-center gap-2"><input type="radio" name="cm-quality" value="exceptional" onchange="renderPreview()"> Vain poikkeukselliset diilit</label>
+                </div>
+              </div>
+
+              <div>
+                <p class="text-xs font-mono app-text3 mb-3 uppercase tracking-wide">Ilmoitukset</p>
+                <div class="flex gap-2">
+                  <label class="flex items-center gap-2 app-card rounded-full px-4 py-2 text-sm cursor-pointer"><input type="checkbox" checked> Push</label>
+                  <label class="flex items-center gap-2 app-card rounded-full px-4 py-2 text-sm cursor-pointer"><input type="checkbox" checked> Sähköposti</label>
+                </div>
+              </div>
+
+              <button onclick="createMonitor()" class="bg-accent text-white rounded-full px-6 py-3 text-sm font-medium hover:bg-accent2">Luo diilivahti</button>
+            </div>
+
+            <div class="app-card rounded-2xl p-5 h-fit sticky top-24">
+              <p class="text-xs font-mono app-text3 mb-4 uppercase tracking-wide">Näin vahtisi toimii</p>
+              <div id="cm-preview" class="space-y-2 text-sm mb-4"></div>
+              <p class="text-xs app-text3 border-t app-border pt-3 mb-1">Arvioitu määrä</p>
+              <p id="cm-estimate" class="font-display text-xl mb-4"></p>
+              <p class="text-xs app-text3 border-t app-border pt-3 mb-2">Esimerkkiosumia demodatassa</p>
+              <div id="cm-matches" class="space-y-2"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- LÖYDÖT -->
+        <section id="view-loydot" class="app-view">
+          <h1 class="font-display text-2xl font-medium mb-6">Löydöt</h1>
+          <div id="findings-keyword-chip" class="hidden mb-4"></div>
+          <div class="flex flex-wrap gap-2 mb-4" id="filter-source">
+            <button data-src="Kaikki" class="src-filter bg-accent text-white rounded-full px-4 py-1.5 text-sm">Kaikki</button>
+            <button data-src="Tori" class="src-filter app-card rounded-full px-4 py-1.5 text-sm app-text2">Tori</button>
+            <button data-src="Nettiauto" class="src-filter app-card rounded-full px-4 py-1.5 text-sm app-text2">Nettiauto</button>
+            <button data-src="Nettimoto" class="src-filter app-card rounded-full px-4 py-1.5 text-sm app-text2">Nettimoto</button>
+            <button data-src="Huuto.net" class="src-filter app-card rounded-full px-4 py-1.5 text-sm app-text2">Huuto.net</button>
+            <button data-src="Muut" class="src-filter app-card rounded-full px-4 py-1.5 text-sm app-text2">Muut</button>
+          </div>
+          <div class="flex flex-wrap gap-2 mb-8" id="filter-quality">
+            <button data-q="all" class="q-filter bg-accent text-white rounded-full px-4 py-1.5 text-sm">Kaikki löydöt</button>
+            <button data-q="good" class="q-filter app-card rounded-full px-4 py-1.5 text-sm app-text2">Hyvät diilit</button>
+            <button data-q="exceptional" class="q-filter app-card rounded-full px-4 py-1.5 text-sm app-text2">Poikkeukselliset diilit</button>
+          </div>
+          <div id="findings-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+        </section>
+
+        <!-- SUOSIKIT -->
+        <section id="view-suosikit" class="app-view">
+          <h1 class="font-display text-2xl font-medium mb-1">Suosikit</h1>
+          <p class="app-text2 text-sm mb-8">Tallentamasi löydöt.</p>
+          <div id="favorites-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+          <p id="favorites-empty" class="app-text3 text-sm hidden">Ei vielä tallennettuja löytöjä. Lisää suosikkeja Löydöt-sivulta.</p>
+        </section>
+
+        <!-- HINTASEURANTA -->
+        <section id="view-hintaseuranta" class="app-view">
+          <h1 class="font-display text-2xl font-medium mb-1">Hintaseuranta</h1>
+          <p class="app-text2 text-sm mb-8">Ilmoitamme, jos hinta laskee asettamasi rajan alle.</p>
+          <div id="alerts-list" class="space-y-3"></div>
+          <p id="alerts-empty" class="app-text3 text-sm hidden">Ei aktiivisia hintahälytyksiä. Luo yksi löytö-sivulta avaamalla ilmoitus.</p>
+        </section>
+
+        <!-- HISTORIA -->
+        <section id="view-historia" class="app-view">
+          <h1 class="font-display text-2xl font-medium mb-6">Historia</h1>
+          <div class="app-card rounded-2xl overflow-hidden">
+            <table class="w-full text-sm">
+              <thead class="app-text3 text-xs uppercase tracking-wide" style="background:var(--app-surface2)"><tr><th class="text-left px-4 py-3 font-medium">Löytö</th><th class="text-left px-4 py-3 font-medium">Markkinapaikka</th><th class="text-left px-4 py-3 font-medium">Hinta</th><th class="text-left px-4 py-3 font-medium">Diilipiste</th><th class="text-left px-4 py-3 font-medium">Julkaistu</th></tr></thead>
+              <tbody id="history-body" class="divide-y app-border"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ANALYTIIKKA -->
+        <section id="view-analytiikka" class="app-view">
+          <h1 class="font-display text-2xl font-medium mb-1">Analytiikka</h1>
+          <p class="app-text2 text-sm mb-8">Miten diilivahtisi suoriutuvat.</p>
+          <div class="grid md:grid-cols-2 gap-5 mb-8">
+            <div class="app-card rounded-2xl p-5"><p class="text-sm font-medium mb-4">Löydöt ajan yli</p><svg viewBox="0 0 300 100" class="w-full h-28"><polyline fill="none" stroke="#4A4CFF" stroke-width="2" points="0,80 30,70 60,74 90,50 120,55 150,30 180,40 210,20 240,28 270,10 300,18"/></svg></div>
+            <div class="app-card rounded-2xl p-5"><p class="text-sm font-medium mb-4">Keskihinnan kehitys</p><svg viewBox="0 0 300 100" class="w-full h-28"><polyline fill="none" stroke="#1E9E63" stroke-width="2" points="0,40 30,45 60,38 90,50 120,42 150,55 180,48 210,60 240,52 270,58 300,50"/></svg></div>
+          </div>
+          <div class="grid md:grid-cols-2 gap-5 mb-8">
+            <div class="app-card rounded-2xl p-5">
+              <p class="text-sm font-medium mb-4">Diilipisteiden jakauma</p>
+              <div class="flex items-end gap-2 h-28">
+                <div class="flex-1 bg-bad/60 rounded-t" style="height:20%"></div>
+                <div class="flex-1 bg-warn/60 rounded-t" style="height:45%"></div>
+                <div class="flex-1 bg-good/60 rounded-t" style="height:70%"></div>
+                <div class="flex-1 bg-good rounded-t" style="height:95%"></div>
+              </div>
+              <div class="flex justify-between text-[10px] app-text3 mt-2"><span>0–40</span><span>41–65</span><span>66–85</span><span>86–100</span></div>
+            </div>
+            <div class="app-card rounded-2xl p-5">
+              <p class="text-sm font-medium mb-4">Osumia markkinapaikoittain</p>
+              <div class="space-y-2 text-sm">
+                <div class="flex justify-between"><span>Tori</span><span class="font-mono app-text3">41 osumaa</span></div>
+                <div class="flex justify-between"><span>Nettiauto</span><span class="font-mono app-text3">28 osumaa</span></div>
+                <div class="flex justify-between"><span>Nettimoto</span><span class="font-mono app-text3">19 osumaa</span></div>
+                <div class="flex justify-between"><span>Huuto.net</span><span class="font-mono app-text3">12 osumaa</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="app-card rounded-2xl p-5">
+            <p class="text-sm font-medium mb-4">Suosituimmat haut</p>
+            <div class="flex flex-wrap gap-2 text-sm">
+              <span class="app-text2 px-3 py-1.5 rounded-full" style="background:var(--app-surface2)">Kawasaki Ninja 500</span>
+              <span class="app-text2 px-3 py-1.5 rounded-full" style="background:var(--app-surface2)">BMW 330i</span>
+              <span class="app-text2 px-3 py-1.5 rounded-full" style="background:var(--app-surface2)">Sony A7 IV</span>
+              <span class="app-text2 px-3 py-1.5 rounded-full" style="background:var(--app-surface2)">Herman Miller Aeron</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ASETUKSET -->
+        <section id="view-asetukset" class="app-view">
+          <h1 class="font-display text-2xl font-medium mb-8">Asetukset</h1>
+          <div class="max-w-lg space-y-10">
+            <div><p class="text-xs font-mono app-text3 mb-3 uppercase tracking-wide">Profiili</p><div class="space-y-3"><input value="Alex Karvonen" class="w-full app-card rounded-lg px-4 py-3 text-sm focus:outline-none"><input id="settings-email" value="alex@esimerkki.fi" class="w-full app-card rounded-lg px-4 py-3 text-sm focus:outline-none"></div></div>
+
+            <div>
+              <p class="text-xs font-mono app-text3 mb-3 uppercase tracking-wide">Ilmoitukset</p>
+              <div class="space-y-3 text-sm">
+                <label class="flex items-center justify-between"><span>Päivittäinen kooste</span><input id="pref-daily" type="checkbox" checked onchange="saveEmailPrefsFromForm()"></label>
+                <label class="flex items-center justify-between"><span>Hintahälytykset</span><input id="pref-pricealerts" type="checkbox" checked onchange="saveEmailPrefsFromForm()"></label>
+                <label class="flex items-center justify-between"><span>Sähköposti-ilmoitukset uusista löydöistä</span><input id="pref-email-findings" type="checkbox" checked onchange="saveEmailPrefsFromForm()"></label>
+                <label class="flex items-center justify-between"><span>— vain hyvät diilit</span><input id="pref-only-good" type="checkbox" checked onchange="saveEmailPrefsFromForm()"></label>
+                <label class="flex items-center justify-between"><span>— vain poikkeukselliset diilit</span><input id="pref-only-exceptional" type="checkbox" onchange="saveEmailPrefsFromForm()"></label>
+              </div>
+            </div>
+
+            <div class="rounded-2xl p-5" style="border:1px solid rgba(74,76,255,0.35)">
+              <p class="text-sm font-medium mb-1">Testaa sähköposti</p>
+              <p class="text-xs app-text3 mb-3">Lähettää esimerkki-ilmoituksen yllä olevaan osoitteeseen, jos sähköpostilähetys on kytketty backendiin.</p>
+              <button onclick="testEmailSend()" class="text-sm bg-accent text-white rounded-full px-4 py-2 hover:bg-accent2">Lähetä testisähköposti</button>
+              <div id="email-status" class="text-xs mt-3"></div>
+            </div>
+
+            <div class="rounded-2xl p-5 app-border" style="border:1px solid var(--app-border)">
+              <p class="text-sm font-medium mb-2">Miten oikea sähköposti-ilmoitus toimisi</p>
+              <p class="text-xs app-text3 leading-relaxed mb-3">Tämä sivu on yksi staattinen HTML-tiedosto, eikä se voi turvallisesti lähettää oikeita sähköposteja suoraan selaimesta — se vaatisi sähköpostipalvelun (esim. Resend) salaisen API-avaimen, jota ei koskaan pidä laittaa selaimen JavaScriptiin. Oikea toteutus tarvitsee:</p>
+              <ol class="text-xs app-text3 space-y-1.5 list-decimal list-inside">
+                <li>Backend / serverless-funktion, joka tallentaa diilivahdit ja pitää API-avaimen turvassa</li>
+                <li>Ajastetun tehtävän (esim. 5–15 min välein), joka hakee uudet ilmoitukset</li>
+                <li>Vertailun käyttäjän hakuehtoihin ja diilipisteen laskennan</li>
+                <li>Sähköpostipalvelun (esim. Resend), joka lähettää itse viestin</li>
+              </ol>
+              <p class="text-xs app-text3 mt-3">"Lähetä testisähköposti" -painike on rakennettu valmiiksi kutsumaan tällaista backend-rajapintaa (<code class="font-mono">/api/send-test-email</code>), mutta tässä demossa rajapintaa ei ole olemassa, joten se kertoo sen rehellisesti sen sijaan, että väittäisi lähettäneensä viestin.</p>
+            </div>
+
+            <div class="rounded-2xl p-5" style="border:1px solid rgba(219,107,44,0.35)">
+              <p class="text-sm font-medium text-warn mb-1">Nollaa demodata</p>
+              <p class="text-xs app-text3 mb-3">Palauttaa diilivahdit, suosikit ja hintahälytykset oletustilaan.</p>
+              <button onclick="resetDemoData()" class="text-sm text-warn border rounded-full px-4 py-2" style="border-color:rgba(219,107,44,0.4)">Nollaa data</button>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 flex justify-around py-2 z-40" style="background:var(--app-sidebar); border-top:1px solid var(--app-border);">
+      <a href="#app/yleiskatsaus" class="app-nav-link flex flex-col items-center text-xs app-text2 px-2" data-app-route="yleiskatsaus">Koti</a>
+      <a href="#app/diilivahdit" class="app-nav-link flex flex-col items-center text-xs app-text2 px-2" data-app-route="diilivahdit">Vahdit</a>
+      <a href="#app/loydot" class="app-nav-link flex flex-col items-center text-xs app-text2 px-2" data-app-route="loydot">Löydöt</a>
+      <a href="#app/suosikit" class="app-nav-link flex flex-col items-center text-xs app-text2 px-2" data-app-route="suosikit">Suosikit</a>
+      <a href="#app/asetukset" class="app-nav-link flex flex-col items-center text-xs app-text2 px-2" data-app-route="asetukset">Profiili</a>
+    </nav>
+  </div>
+</div>
+
+<div id="modal-root"><div id="modal-backdrop" onclick="closeModal()"></div><div id="modal-panel"></div></div>
+<div id="toast-root"></div>
+
+<script>
+
+// ---------- IMAGES ----------
+const IMG = {
+  bmw:'https://commons.wikimedia.org/wiki/Special:FilePath/1998-2001%20BMW%20318i%20(E46)%20sedan%2001.jpg?width=800',
+  ninja:'https://commons.wikimedia.org/wiki/Special:FilePath/Kawasaki%20Ninja%20500.jpg?width=800',
+  sony:'https://commons.wikimedia.org/wiki/Special:FilePath/Sony%20a7%20IV%2033MP%20Mirrorless%20Digital%20Camera.jpg?width=800',
+  aeron:'https://commons.wikimedia.org/wiki/Special:FilePath/Aeron%20Chair.jpg?width=800',
+  audi:'https://commons.wikimedia.org/wiki/Special:FilePath/Audi%20S3%20Sportback.jpg?width=800',
+  gryaris:'https://commons.wikimedia.org/wiki/Special:FilePath/2024%20Toyota%20GR%20Yaris%20RZ%20GR-DAT.jpg?width=800',
+  mt07:'https://commons.wikimedia.org/wiki/Special:FilePath/2021%20Black%20Yamaha%20MT-07.jpg?width=800',
+  canon:'https://commons.wikimedia.org/wiki/Special:FilePath/Canon%20EOS%20R6%2014.jpg?width=800',
+  ps5:'https://commons.wikimedia.org/wiki/Special:FilePath/Playstation%205.jpg?width=800',
+  rolex:'https://commons.wikimedia.org/wiki/Special:FilePath/Rolex%20Datejust.JPG?width=800',
+};
+const FALLBACK = IMG.mt07;
+
+// Each listing carries the fields a real matching engine would need:
+// category/brand/model/keywords/year drive matchesSearch(); everything else is display data.
+const LISTINGS = [
+  { id:'bmw330i', title:'BMW 330i', category:'Autot', brand:'BMW', model:'330i', year:2019, keywords:['sedan','bensiini'], price:12900, marketAvg:15500, location:'Helsinki', time:'2 min sitten', detail:'2019 · 98 000 km', img:IMG.bmw, score:94, source:'Nettiauto' },
+  { id:'ninja500', title:'Kawasaki Ninja 500', category:'Moottoripyörät', brand:'Kawasaki', model:'Ninja 500', year:2024, keywords:['moottoripyörä','sport'], price:6490, marketAvg:6900, location:'Helsinki', time:'6 min sitten', detail:'2024 · 4 100 km', img:IMG.ninja, score:91, source:'Nettimoto' },
+  { id:'sonya7iv', title:'Sony A7 IV runko', category:'Elektroniikka', brand:'Sony', model:'A7 IV', year:null, keywords:['kamera','järjestelmäkamera'], price:1450, marketAvg:1750, location:'Helsinki', time:'12 min sitten', detail:'Laukaisumäärä 6 800', img:IMG.sony, score:88, source:'Muut' },
+  { id:'aeron', title:'Herman Miller Aeron, koko B', category:'Huonekalut', brand:'Herman Miller', model:'Aeron', year:null, keywords:['työtuoli','toimistotuoli'], price:620, marketAvg:780, location:'Espoo', time:'19 min sitten', detail:'Täysin säädettävä', img:IMG.aeron, score:86, source:'Tori' },
+  { id:'rolex', title:'Rolex Datejust 36', category:'Kellot', brand:'Rolex', model:'Datejust', year:null, keywords:['kello','rannekello'], price:4300, marketAvg:6200, location:'Helsinki', time:'24 min sitten', detail:'Vuosihuolto tehty 2023', img:IMG.rolex, score:97, source:'Tori' },
+  { id:'audis3', title:'Audi S3 Sportback', category:'Autot', brand:'Audi', model:'S3', year:2018, keywords:['hatchback','bensiini'], price:18900, marketAvg:21000, location:'Tampere', time:'33 min sitten', detail:'2018 · 112 000 km', img:IMG.audi, score:79, source:'Nettiauto' },
+  { id:'gryaris', title:'Toyota GR Yaris', category:'Autot', brand:'Toyota', model:'GR Yaris', year:2022, keywords:['hot hatch','ralli'], price:34900, marketAvg:36500, location:'Turku', time:'41 min sitten', detail:'2022 · 21 000 km', img:IMG.gryaris, score:72, source:'Nettiauto' },
+  { id:'mt07', title:'Yamaha MT-07', category:'Moottoripyörät', brand:'Yamaha', model:'MT-07', year:2021, keywords:['moottoripyörä','naked'], price:5900, marketAvg:6200, location:'Espoo', time:'52 min sitten', detail:'2021 · 12 300 km', img:IMG.mt07, score:68, source:'Nettimoto' },
+  { id:'canonr6', title:'Canon EOS R6', category:'Elektroniikka', brand:'Canon', model:'EOS R6', year:null, keywords:['kamera','järjestelmäkamera'], price:1450, marketAvg:1650, location:'Turku', time:'1 t sitten', detail:'Laukaisumäärä 9 200', img:IMG.canon, score:65, source:'Muut' },
+  { id:'ps5', title:'PlayStation 5, levyasema', category:'Pelit', brand:'Sony', model:'PlayStation 5', year:null, keywords:['pelikonsoli','konsoli'], price:340, marketAvg:380, location:'Helsinki', time:'1 t sitten', detail:'2 ohjainta', img:IMG.ps5, score:58, source:'Huuto.net' },
+];
+
+const DEFAULT_MONITORS = [
+  { id:'m1', name:'Kawasaki Ninja 500', budget:'Alle 7 000 €', maxPrice:7000, minPrice:null, yearFrom:null, yearTo:null, loc:'Suomi · 100 km', sources:['Tori','Nettimoto'], quality:'good', status:'Aktiivinen' },
+  { id:'m2', name:'BMW 330i', budget:'Alle 15 000 €', maxPrice:15000, minPrice:null, yearFrom:null, yearTo:null, loc:'Suomi · 200 km', sources:['Nettiauto'], quality:'exceptional', status:'Aktiivinen' },
+  { id:'m3', name:'Sony A7 IV', budget:'Alle 1 800 €', maxPrice:1800, minPrice:null, yearFrom:null, yearTo:null, loc:'Suomi', sources:['Tori','Muut'], quality:'good', status:'Aktiivinen' },
+  { id:'m4', name:'Herman Miller Aeron', budget:'Alle 800 €', maxPrice:800, minPrice:null, yearFrom:null, yearTo:null, loc:'Pääkaupunkiseutu', sources:['Tori'], quality:'all', status:'Aktiivinen' },
+  { id:'m5', name:'Rolex Datejust', budget:'Alle 6 500 €', maxPrice:6500, minPrice:null, yearFrom:null, yearTo:null, loc:'Suomi', sources:['Tori'], quality:'exceptional', status:'Aktiivinen' },
+  { id:'m6', name:'Audi S3', budget:'Alle 22 000 €', maxPrice:22000, minPrice:null, yearFrom:null, yearTo:null, loc:'Suomi · 300 km', sources:['Nettiauto'], quality:'good', status:'Tauolla' },
+  { id:'m7', name:'PlayStation 5', budget:'Alle 400 €', maxPrice:400, minPrice:null, yearFrom:null, yearTo:null, loc:'Pääkaupunkiseutu', sources:['Huuto.net','Tori'], quality:'all', status:'Aktiivinen' },
+];
+
+// ---------- MATCHING ENGINE ----------
+// The single source of truth for "does this listing belong to this search / monitor".
+// watch: { keyword, minPrice, maxPrice, yearFrom, yearTo, sources: [] }
+function matchesSearch(listing, watch){
+  const kw = (watch.keyword || '').toLowerCase().trim();
+  const tokens = kw.split(/\s+/).filter(Boolean);
+  const haystack = [listing.title, listing.brand, listing.model, listing.category, ...(listing.keywords||[])].join(' ').toLowerCase();
+  // Require every search word to appear somewhere on the listing — an "any word"
+  // match is how a Kawasaki search used to surface a BMW (both contain no shared
+  // word, but broader single-word category terms did overlap and leaked across
+  // unrelated categories).
+  const keywordOk = tokens.length === 0 || tokens.every(t => haystack.includes(t));
+
+  const minPrice = watch.minPrice ? Number(watch.minPrice) : null;
+  const maxPrice = watch.maxPrice ? Number(watch.maxPrice) : null;
+  const priceOk = (!minPrice || listing.price >= minPrice) && (!maxPrice || listing.price <= maxPrice);
+
+  const yearFrom = watch.yearFrom ? Number(watch.yearFrom) : null;
+  const yearTo = watch.yearTo ? Number(watch.yearTo) : null;
+  const yearOk = !listing.year || ((!yearFrom || listing.year >= yearFrom) && (!yearTo || listing.year <= yearTo));
+
+  const sourceOk = !watch.sources || !watch.sources.length || watch.sources.includes(listing.source);
+
+  return keywordOk && priceOk && yearOk && sourceOk;
+}
+
+function findingsForMonitor(m){
+  const watch = { keyword: m.name, minPrice: m.minPrice, maxPrice: m.maxPrice, yearFrom: m.yearFrom, yearTo: m.yearTo, sources: m.sources };
+  let matches = LISTINGS.filter(l => matchesSearch(l, watch));
+  if(m.quality === 'good') matches = matches.filter(l => l.score >= 75);
+  if(m.quality === 'exceptional') matches = matches.filter(l => l.score >= 90);
+  return matches.sort((a,b) => b.score - a.score);
+}
+
+// ---------- STATE (localStorage) ----------
+const LS_MONITORS = 'diilivahti_monitors';
+const LS_FAVORITES = 'diilivahti_favorites';
+const LS_ALERTS = 'diilivahti_price_alerts';
+const LS_EMAIL_PREFS = 'diilivahti_email_prefs';
+
+function loadMonitors(){ try { const v = JSON.parse(localStorage.getItem(LS_MONITORS)); return Array.isArray(v) ? v : null; } catch(e){ return null; } }
+function saveMonitors(list){ localStorage.setItem(LS_MONITORS, JSON.stringify(list)); }
+function loadFavorites(){ try { const v = JSON.parse(localStorage.getItem(LS_FAVORITES)); return Array.isArray(v) ? v : []; } catch(e){ return []; } }
+function saveFavorites(list){ localStorage.setItem(LS_FAVORITES, JSON.stringify(list)); }
+function loadAlerts(){ try { const v = JSON.parse(localStorage.getItem(LS_ALERTS)); return v && typeof v==='object' ? v : {}; } catch(e){ return {}; } }
+function saveAlerts(obj){ localStorage.setItem(LS_ALERTS, JSON.stringify(obj)); }
+function loadEmailPrefs(){
+  try {
+    const v = JSON.parse(localStorage.getItem(LS_EMAIL_PREFS));
+    if(v && typeof v==='object') return v;
+  } catch(e){}
+  return { daily:true, priceAlerts:true, emailFindings:true, onlyGood:true, onlyExceptional:false };
+}
+function saveEmailPrefs(obj){ localStorage.setItem(LS_EMAIL_PREFS, JSON.stringify(obj)); }
+
+let state = {
+  monitors: loadMonitors() || DEFAULT_MONITORS.slice(),
+  favorites: loadFavorites(),
+  alerts: loadAlerts(),
+  emailPrefs: loadEmailPrefs(),
+  findFilter: { source:'Kaikki', quality:'all', keyword:'' },
+};
+if(!loadMonitors()) saveMonitors(state.monitors);
+
+function resetDemoData(){
+  localStorage.removeItem(LS_MONITORS); localStorage.removeItem(LS_FAVORITES); localStorage.removeItem(LS_ALERTS); localStorage.removeItem(LS_EMAIL_PREFS);
+  state.monitors = DEFAULT_MONITORS.slice(); state.favorites = []; state.alerts = {}; state.emailPrefs = loadEmailPrefs();
+  state.findFilter = { source:'Kaikki', quality:'all', keyword:'' };
+  saveMonitors(state.monitors);
+  renderAll();
+  applyEmailPrefsToForm();
+  showToast('Demodata nollattu');
+}
+
+// ---------- HELPERS ----------
+function eur(n){ return Math.round(n).toLocaleString('fi-FI') + ' €'; }
+function listingById(id){ return LISTINGS.find(l=>l.id===id); }
+function scoreInfo(score){
+  if(score>=90) return { label:'Poikkeuksellinen diili', cls:'text-good', ring:'#1E9E63', tier:'exceptional' };
+  if(score>=75) return { label:'Hyvä diili', cls:'text-good', ring:'#1E9E63', tier:'good' };
+  if(score>=55) return { label:'Normaali', cls:'text-warn', ring:'#DB6B2C', tier:'normal' };
+  return { label:'Ei erityisen kiinnostava', cls:'text-bad', ring:'#D2483C', tier:'low' };
+}
+function ring(score, size=56, stroke=5){
+  const r=(size-stroke)/2, c=2*Math.PI*r, off=c*(1-score/100);
+  const info = scoreInfo(score);
+  return `<svg width="${size}" height="${size}" style="transform:rotate(-90deg)">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" stroke="rgba(255,255,255,0.12)" stroke-width="${stroke}" fill="none"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" stroke="${info.ring}" stroke-width="${stroke}" fill="none" stroke-dasharray="${c}" stroke-dashoffset="${off}" stroke-linecap="round"/>
+  </svg>`;
+}
+
+// ---------- TOASTS ----------
+function showToast(msg){
+  const root = document.getElementById('toast-root');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `<span class="live-dot" style="background:#1E9E63; box-shadow:none;"></span>${msg}`;
+  root.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(), 300); }, 2600);
+}
+
+// ---------- MODAL ----------
+function openModal(html){ document.getElementById('modal-panel').innerHTML = html; document.getElementById('modal-root').classList.add('open'); }
+function closeModal(){ document.getElementById('modal-root').classList.remove('open'); document.getElementById('modal-panel').innerHTML=''; }
+
+function openListingModal(id){
+  const l = listingById(id);
+  const info = scoreInfo(l.score);
+  const isFav = state.favorites.includes(id);
+  const diff = l.marketAvg - l.price;
+  const pct = Math.round((diff / l.marketAvg) * 100);
+  const comps = [l.marketAvg*0.94, l.marketAvg*1.0, l.marketAvg*1.05, l.marketAvg*0.9, l.marketAvg*1.08].map(Math.round);
+  openModal(`
+    <div class="app-card rounded-2xl overflow-hidden" style="background:#151519;color:#F1F0ED;border-color:#27272E">
+      <img src="${l.img}" onerror="this.src='${FALLBACK}'" class="w-full h-56 object-cover" alt="">
+      <div class="p-6">
+        <div class="flex items-start justify-between gap-4 mb-1">
+          <div><p class="font-display text-xl">${l.title}</p><p class="app-text2 text-sm mt-0.5">${l.location} · ${l.source} · ${l.time}</p></div>
+          <p class="font-mono text-xl">${eur(l.price)}</p>
+        </div>
+        <div class="flex items-center gap-3 mt-5">
+          <div class="relative w-14 h-14">${ring(l.score,56,5)}<div class="absolute inset-0 flex items-center justify-center font-mono text-xs">${l.score}</div></div>
+          <div><p class="text-sm font-medium ${info.cls}">${info.label}</p><p class="app-text3 text-xs">Diilipiste ${l.score}/100</p></div>
+        </div>
+        <div class="mt-5 border-t app-border pt-5">
+          <p class="text-xs font-mono app-text3 mb-3 uppercase tracking-wide">Hinta-analyysi</p>
+          <svg viewBox="0 0 260 80" class="w-full h-20 mb-2">
+            ${comps.map((v,i)=>`<rect x="${i*50+5}" y="${80-(v/Math.max(...comps,l.price))*70}" width="34" height="${(v/Math.max(...comps,l.price))*70}" fill="#27272E"/>`).join('')}
+          </svg>
+          <p class="app-text2 text-sm">Tyypillinen markkinahinta <span class="font-mono">${eur(l.marketAvg)}</span></p>
+          <p class="text-sm ${diff>0?'text-good':'text-bad'} font-mono">${diff>0?'−':'+'}${eur(Math.abs(diff))} (${pct}%) ${diff>0?'alle':'yli'} tyypillisen hinnan</p>
+        </div>
+        <div class="flex flex-wrap gap-3 mt-6">
+          <button onclick="showToast('Tämä on demo — ei oikeaa ilmoitusta.')" class="bg-accent text-white rounded-full px-5 py-2.5 text-sm font-medium hover:bg-accent2">Avaa alkuperäinen ilmoitus</button>
+          <button onclick="toggleFavorite('${id}'); closeModal(); openListingModal('${id}')" class="app-card rounded-full px-5 py-2.5 text-sm font-medium">${isFav?'♥ Tallennettu':'♡ Tallenna'}</button>
+          <button onclick="openAlertModal('${id}')" class="app-card rounded-full px-5 py-2.5 text-sm font-medium">Luo hintahälytys</button>
+        </div>
+      </div>
+    </div>`);
+}
+
+function openAlertModal(id){
+  const l = listingById(id);
+  openModal(`
+    <div class="app-card rounded-2xl p-6" style="background:#151519;color:#F1F0ED;border-color:#27272E">
+      <p class="font-display text-lg mb-1">Luo hintahälytys</p>
+      <p class="app-text2 text-sm mb-5">${l.title} — nykyinen hinta ${eur(l.price)}</p>
+      <p class="text-sm mb-2">Ilmoita minulle, jos hinta laskee alle:</p>
+      <input id="alert-threshold" type="number" value="${Math.max(0, l.price-500)}" class="w-full app-card rounded-lg px-4 py-3 text-sm mb-5 focus:outline-none">
+      <div class="flex gap-3">
+        <button onclick="submitAlert('${id}')" class="bg-accent text-white rounded-full px-5 py-2.5 text-sm font-medium hover:bg-accent2">Ota hintahälytys käyttöön</button>
+        <button onclick="closeModal()" class="app-card rounded-full px-5 py-2.5 text-sm font-medium">Peruuta</button>
+      </div>
+    </div>`);
+}
+function submitAlert(id){
+  const threshold = Number(document.getElementById('alert-threshold').value || 0);
+  state.alerts[id] = threshold;
+  saveAlerts(state.alerts);
+  closeModal();
+  showToast('✓ Hintahälytys luotu');
+  renderAlertsList();
+}
+
+function toggleFavorite(id){
+  const i = state.favorites.indexOf(id);
+  if(i>-1) state.favorites.splice(i,1); else state.favorites.push(id);
+  saveFavorites(state.favorites);
+  renderFavorites(); renderFindings(); renderBestFinds();
+}
+
+// ---------- YLEISKATSAUS ----------
+function renderBestFinds(){
+  const el = document.getElementById('best-finds');
+  if(!el) return;
+  const top = LISTINGS.slice().sort((a,b)=>b.score-a.score).slice(0,4);
+  el.innerHTML = top.map(l=>findCard(l)).join('');
+  document.getElementById('stat-monitors').textContent = state.monitors.filter(m=>m.status==='Aktiivinen').length;
+}
+
+function findCard(l){
+  const info = scoreInfo(l.score);
+  const isFav = state.favorites.includes(l.id);
+  const diff = l.marketAvg - l.price;
+  return `
+  <div class="app-card rounded-2xl overflow-hidden">
+    <div class="relative">
+      <img src="${l.img}" onerror="this.src='${FALLBACK}'" class="w-full h-40 object-cover cursor-pointer" onclick="openListingModal('${l.id}')" alt="">
+      <button onclick="toggleFavorite('${l.id}')" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center">${isFav?'♥':'♡'}</button>
+      <span class="absolute top-3 left-3 text-[10px] font-mono px-2 py-1 rounded-full bg-black/50 text-white">${l.source}</span>
+    </div>
+    <div class="p-4">
+      <div class="flex items-start justify-between gap-2">
+        <div><p class="font-medium">${l.title}</p><p class="text-xs app-text3">${l.location} · ${l.time}</p></div>
+        <div class="relative w-11 h-11 shrink-0">${ring(l.score,44,4)}<div class="absolute inset-0 flex items-center justify-center text-[10px] font-mono">${l.score}</div></div>
+      </div>
+      <div class="flex items-center justify-between mt-3">
+        <span class="font-mono font-medium">${eur(l.price)}</span>
+        ${diff>0 ? `<span class="text-xs text-good font-mono">−${Math.round(diff/l.marketAvg*100)}% markkinahinnasta</span>` : ''}
+      </div>
+      <button onclick="openListingModal('${l.id}')" class="mt-3 text-sm text-accent font-medium">Katso ilmoitus →</button>
+    </div>
+  </div>`;
+}
+
+function miniFindCard(l){
+  return `
+  <div class="flex items-center gap-3 app-card rounded-xl p-2.5 cursor-pointer" onclick="openListingModal('${l.id}')">
+    <img src="${l.img}" onerror="this.src='${FALLBACK}'" class="w-10 h-10 rounded-lg object-cover shrink-0" alt="">
+    <div class="min-w-0 flex-1">
+      <p class="text-sm font-medium truncate">${l.title}</p>
+      <p class="text-xs app-text3">${eur(l.price)} · ${l.source}</p>
+    </div>
+    <span class="text-xs font-mono app-text2 shrink-0">${l.score}</span>
+  </div>`;
+}
+
+// ---------- MONITORS ----------
+function renderMonitorsList(){
+  const el = document.getElementById('monitors-list');
+  if(!el) return;
+  document.getElementById('dv-count').textContent = state.monitors.length;
+  el.innerHTML = state.monitors.map(m=>{
+    const matches = findingsForMonitor(m);
+    const thumbs = matches.slice(0,3);
+    return `
+    <div class="app-card rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-2">
+        <p class="font-medium">${m.name}</p>
+        <span class="text-xs px-2 py-0.5 rounded-full ${m.status==='Aktiivinen'?'bg-good/15 text-good':'bg-white/10 app-text2'}">${m.status==='Aktiivinen'?'● Aktiivinen':'Tauolla'}</span>
+      </div>
+      <p class="text-xs app-text3 mb-1">${m.loc}</p>
+      <p class="text-xs font-mono app-text2 mb-3">${m.budget}</p>
+      <div class="flex flex-wrap gap-1.5 mb-3">${m.sources.map(s=>`<span class="text-[10px] px-2 py-0.5 rounded-full app-text2" style="background:var(--app-surface2)">${s}</span>`).join('')}</div>
+      ${thumbs.length ? `<div class="flex -space-x-2 mb-3">${thumbs.map(l=>`<img src="${l.img}" onerror="this.src='${FALLBACK}'" class="w-8 h-8 rounded-full object-cover border-2" style="border-color:var(--app-surface)" title="${l.title}">`).join('')}</div>` : ''}
+      <div class="flex items-center justify-between text-xs mb-3 app-text3"><span>${matches.length} osumaa juuri nyt tällä haulla</span></div>
+      <div class="flex gap-4 text-xs app-text2 pt-3 border-t app-border">
+        <button onclick="goToFindingsForMonitor('${m.id}')" class="hover:text-accent">Näytä löydöt</button>
+        <button onclick="toggleMonitorStatus('${m.id}')" class="hover:text-accent">${m.status==='Aktiivinen'?'Keskeytä':'Jatka'}</button>
+        <button onclick="deleteMonitor('${m.id}')" class="hover:text-warn">Poista</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function toggleMonitorStatus(id){
+  const m = state.monitors.find(x=>x.id===id);
+  m.status = m.status==='Aktiivinen' ? 'Tauolla' : 'Aktiivinen';
+  saveMonitors(state.monitors); renderMonitorsList(); renderBestFinds();
+}
+function deleteMonitor(id){
+  state.monitors = state.monitors.filter(x=>x.id!==id);
+  saveMonitors(state.monitors); renderMonitorsList(); renderBestFinds();
+  showToast('Diilivahti poistettu');
+}
+function goToFindingsForMonitor(id){
+  const m = state.monitors.find(x=>x.id===id);
+  if(!m) return;
+  state.findFilter = { source:'Kaikki', quality:'all', keyword:m.name };
+  location.hash = 'app/loydot';
+}
+
+function computePreviewMatches(){
+  const kw = document.getElementById('cm-keyword')?.value || '';
+  const min = document.getElementById('cm-min')?.value || null;
+  const max = document.getElementById('cm-max')?.value || null;
+  const yearFrom = document.getElementById('cm-year-from')?.value || null;
+  const yearTo = document.getElementById('cm-year-to')?.value || null;
+  const sources = Array.from(document.querySelectorAll('.cm-source:checked')).map(c=>c.value);
+  const quality = document.querySelector('input[name="cm-quality"]:checked')?.value || 'good';
+  const watch = { keyword:kw, minPrice:min, maxPrice:max, yearFrom, yearTo, sources };
+  let matches = LISTINGS.filter(l=>matchesSearch(l, watch));
+  if(quality==='good') matches = matches.filter(l=>l.score>=75);
+  if(quality==='exceptional') matches = matches.filter(l=>l.score>=90);
+  return matches.sort((a,b)=>b.score-a.score);
+}
+
+function renderPreview(){
+  const kw = document.getElementById('cm-keyword')?.value || 'Kawasaki Ninja 500';
+  const min = document.getElementById('cm-min')?.value;
+  const max = document.getElementById('cm-max')?.value || '—';
+  const loc = document.getElementById('cm-loc')?.value || 'Suomi';
+  const sources = Array.from(document.querySelectorAll('.cm-source:checked')).map(c=>c.value);
+  const quality = document.querySelector('input[name="cm-quality"]:checked')?.value || 'good';
+  const qualityLabel = quality==='exceptional' ? 'Vain poikkeukselliset diilit' : quality==='all' ? 'Kaikki sopivat' : 'Vain hyvät diilit';
+  const el = document.getElementById('cm-preview');
+  if(el){
+    el.innerHTML = `
+      <div class="flex justify-between"><span class="app-text2">Haku</span><span class="font-medium">${kw}</span></div>
+      <div class="flex justify-between"><span class="app-text2">Budjetti</span><span class="font-mono">${min?eur(Number(min)):'0 €'} – ${max&&max!=='—'?eur(Number(max)):'—'}</span></div>
+      <div class="flex justify-between"><span class="app-text2">Sijainti</span><span>${loc}</span></div>
+      <div class="flex justify-between"><span class="app-text2">Markkinapaikat</span><span>${sources.length} kpl</span></div>
+      <div class="flex justify-between"><span class="app-text2">Suodatus</span><span>${qualityLabel}</span></div>`;
+  }
+
+  const matches = computePreviewMatches();
+
+  const estEl = document.getElementById('cm-estimate');
+  if(estEl){
+    // Estimate weekly volume from how many demo listings match plus source coverage —
+    // illustrative, not a real forecast.
+    const base = Math.max(1, matches.length) * Math.max(1, sources.length);
+    const lo = Math.max(1, Math.round(base*0.6));
+    const hi = Math.round(base*1.6)+lo-lo+lo;
+    estEl.textContent = `${lo}–${Math.max(lo+1,hi)} osumaa / viikko`;
+  }
+
+  const matchesEl = document.getElementById('cm-matches');
+  if(matchesEl){
+    matchesEl.innerHTML = matches.length
+      ? matches.slice(0,3).map(l=>miniFindCard(l)).join('')
+      : `<p class="text-xs app-text3">Ei esimerkkiosumia näillä ehdoilla demodatassa. Kokeile väljempää hakusanaa tai budjettia.</p>`;
+  }
+}
+function createMonitor(){
+  const kw = document.getElementById('cm-keyword').value.trim() || 'Uusi haku';
+  const min = document.getElementById('cm-min').value;
+  const max = document.getElementById('cm-max').value;
+  const yearFrom = document.getElementById('cm-year-from').value;
+  const yearTo = document.getElementById('cm-year-to').value;
+  const loc = document.getElementById('cm-loc').value || 'Suomi';
+  const sources = Array.from(document.querySelectorAll('.cm-source:checked')).map(c=>c.value);
+  const quality = document.querySelector('input[name="cm-quality"]:checked')?.value || 'good';
+  const budget = (min?eur(Number(min)):'0 €') + ' – ' + (max?eur(Number(max)):'—');
+  const monitor = {
+    id:'m'+Date.now(), name:kw, budget, maxPrice: max?Number(max):null, minPrice: min?Number(min):null,
+    yearFrom: yearFrom?Number(yearFrom):null, yearTo: yearTo?Number(yearTo):null,
+    loc, sources: sources.length?sources:['Tori'], quality, status:'Aktiivinen',
+  };
+  state.monitors.unshift(monitor);
+  saveMonitors(state.monitors);
+  showToast('✓ Diilivahti luotu');
+  location.hash = 'app/diilivahdit';
+}
+
+// ---------- LÖYDÖT (findings) ----------
+function renderFindingsKeywordChip(){
+  const chip = document.getElementById('findings-keyword-chip');
+  if(!chip) return;
+  if(state.findFilter.keyword){
+    chip.classList.remove('hidden');
+    chip.innerHTML = `<span class="inline-flex items-center gap-2 app-card rounded-full px-4 py-1.5 text-sm">Suodatettu diilivahdilla: <strong>${state.findFilter.keyword}</strong> <button onclick="clearKeywordFilter()" class="app-text3 hover:text-white">✕</button></span>`;
+  } else {
+    chip.classList.add('hidden');
+    chip.innerHTML = '';
+  }
+}
+function clearKeywordFilter(){
+  state.findFilter.keyword = '';
+  renderFindingsKeywordChip();
+  renderFindings();
+}
+function renderFindings(){
+  const el = document.getElementById('findings-grid');
+  if(!el) return;
+  renderFindingsKeywordChip();
+  const { source, quality, keyword } = state.findFilter;
+  const filtered = LISTINGS.filter(l=>{
+    const srcOk = source==='Kaikki' || l.source===source;
+    const qOk = quality==='all' || (quality==='good' && l.score>=75) || (quality==='exceptional' && l.score>=90);
+    const kwOk = !keyword || matchesSearch(l, { keyword });
+    return srcOk && qOk && kwOk;
+  });
+  el.innerHTML = filtered.length ? filtered.map(l=>findCard(l)).join('') : `<p class="app-text3 text-sm">Ei löytöjä näillä suodattimilla.</p>`;
+}
+function initFindingFilters(){
+  document.querySelectorAll('.src-filter').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.findFilter.source = btn.dataset.src;
+      document.querySelectorAll('.src-filter').forEach(b=>{ b.classList.remove('bg-accent','text-white'); b.classList.add('app-card','app-text2'); });
+      btn.classList.add('bg-accent','text-white'); btn.classList.remove('app-card','app-text2');
+      renderFindings();
+    });
+  });
+  document.querySelectorAll('.q-filter').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.findFilter.quality = btn.dataset.q;
+      document.querySelectorAll('.q-filter').forEach(b=>{ b.classList.remove('bg-accent','text-white'); b.classList.add('app-card','app-text2'); });
+      btn.classList.add('bg-accent','text-white'); btn.classList.remove('app-card','app-text2');
+      renderFindings();
+    });
+  });
+}
+
+// ---------- SUOSIKIT ----------
+function renderFavorites(){
+  const el = document.getElementById('favorites-grid');
+  const empty = document.getElementById('favorites-empty');
+  if(!el) return;
+  const favs = state.favorites.map(listingById).filter(Boolean);
+  empty.classList.toggle('hidden', favs.length>0);
+  el.innerHTML = favs.map(l=>{
+    const dropped = l.id==='bmw330i' || l.id==='ninja500';
+    const prevPrice = dropped ? Math.round(l.price*1.06) : null;
+    return `
+    <div class="app-card rounded-2xl overflow-hidden">
+      <img src="${l.img}" onerror="this.src='${FALLBACK}'" class="w-full h-40 object-cover" alt="">
+      <div class="p-4">
+        <p class="font-medium">${l.title}</p>
+        <p class="text-xs app-text3 mb-2">${l.location} · ${l.source}</p>
+        ${dropped ? `<p class="text-sm"><span class="line-through app-text3 font-mono">${eur(prevPrice)}</span> → <span class="font-mono text-good">${eur(l.price)}</span> ↓ ${Math.round((prevPrice-l.price)/prevPrice*100)}%</p><p class="text-xs text-good font-medium mt-1">Hinta laski!</p>` : `<p class="font-mono">${eur(l.price)}</p>`}
+        <div class="relative w-9 h-9 mt-3">${ring(l.score,36,4)}<div class="absolute inset-0 flex items-center justify-center text-[9px] font-mono">${l.score}</div></div>
+        <div class="flex gap-3 mt-3 text-xs">
+          <button onclick="openListingModal('${l.id}')" class="text-accent font-medium">Katso</button>
+          <button onclick="toggleFavorite('${l.id}')" class="text-warn font-medium">Poista suosikeista</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ---------- HINTASEURANTA ----------
+function renderAlertsList(){
+  const el = document.getElementById('alerts-list');
+  const empty = document.getElementById('alerts-empty');
+  if(!el) return;
+  const ids = Object.keys(state.alerts);
+  empty.classList.toggle('hidden', ids.length>0);
+  el.innerHTML = ids.map(id=>{
+    const l = listingById(id); if(!l) return '';
+    const threshold = state.alerts[id];
+    const hit = l.price <= threshold;
+    return `
+    <div class="app-card rounded-2xl p-4 flex items-center gap-4">
+      <img src="${l.img}" onerror="this.src='${FALLBACK}'" class="w-14 h-14 rounded-lg object-cover" alt="">
+      <div class="flex-1">
+        <p class="font-medium">${l.title}</p>
+        <p class="text-xs app-text3">Nykyinen hinta <span class="font-mono">${eur(l.price)}</span> · Raja <span class="font-mono">${eur(threshold)}</span></p>
+        ${hit ? `<p class="text-xs text-good font-medium mt-1">Raja alitettu — kannattaa katsoa!</p>` : ''}
+      </div>
+      <button onclick="removeAlert('${id}')" class="text-xs text-warn">Poista</button>
+    </div>`;
+  }).join('');
+}
+function removeAlert(id){ delete state.alerts[id]; saveAlerts(state.alerts); renderAlertsList(); showToast('Hintahälytys poistettu'); }
+
+// ---------- HISTORIA ----------
+function renderHistory(){
+  const el = document.getElementById('history-body');
+  if(!el) return;
+  el.innerHTML = LISTINGS.map(l=>`
+    <tr>
+      <td class="px-4 py-3"><div class="flex items-center gap-3"><img src="${l.img}" onerror="this.src='${FALLBACK}'" class="w-10 h-10 rounded-lg object-cover" alt=""><span class="font-medium truncate max-w-[160px]">${l.title}</span></div></td>
+      <td class="px-4 py-3 app-text2">${l.source}</td>
+      <td class="px-4 py-3 font-mono">${eur(l.price)}</td>
+      <td class="px-4 py-3 font-mono">${l.score}/100</td>
+      <td class="px-4 py-3 app-text3">${l.time}</td>
+    </tr>`).join('');
+}
+
+// ---------- LIVE DEMO (landing) — now driven by the actual search box ----------
+function runLiveDemo(){
+  const input = document.getElementById('demo-search');
+  const query = (input?.value || '').trim();
+  const out = document.getElementById('demo-output');
+  const btn = document.getElementById('demo-start');
+  btn.disabled = true; btn.classList.add('opacity-50');
+  out.innerHTML = '';
+
+  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const matches = tokens.length ? LISTINGS.filter(l => matchesSearch(l, { keyword: query })) : [];
+
+  if(!tokens.length || !matches.length){
+    out.innerHTML = `<p class="text-sm app-text3">Ei osumia haulle "${query || '—'}" tässä demodatassa. Kokeile esim. "BMW", "Sony A7" tai "Rolex".</p>`;
+    btn.disabled = false; btn.classList.remove('opacity-50');
+    return;
+  }
+
+  const bySource = {};
+  matches.forEach(l=>{ bySource[l.source] = (bySource[l.source]||0)+1; });
+  const best = matches.slice().sort((a,b)=>b.score-a.score)[0];
+  const goodCount = matches.filter(l=>l.score>=75).length;
+  const exceptionalCount = matches.filter(l=>l.score>=90).length;
+  const rawFound = matches.length + Math.round(matches.length*2.4) + 6;
+  const afterDedup = matches.length + Math.round(matches.length*0.8) + 2;
+
+  const lines = [
+    { t:700, html:'<p class="text-sm font-mono text-ink/60">Skannataan markkinoita…</p>' },
+    ...Object.entries(bySource).map(([src,count])=>({ t:600, html:`<p class="text-sm">${src} <span class="text-good">✓</span> — ${count} osumaa</p>` })),
+    { t:800, html:`<p class="text-sm font-mono text-ink/60">Analysoidaan ${rawFound} ilmoitusta…</p>` },
+    { t:700, html:`<p class="text-sm">Duplikaatit poistettu → <strong>${afterDedup} ilmoitusta</strong></p>` },
+    { t:700, html:`<p class="text-sm">Hakuehdot tarkistettu → <strong>${matches.length} sopivaa</strong></p>` },
+    { t:700, html:`<p class="text-sm">Hintataso analysoitu → <strong>${goodCount} hyvää diiliä</strong></p>` },
+    { t:800, html: exceptionalCount
+        ? `<p class="text-sm text-good font-medium">${exceptionalCount} poikkeuksellinen diili löytyi</p>`
+        : goodCount
+          ? `<p class="text-sm text-good font-medium">${goodCount} hyvä diili löytyi</p>`
+          : `<p class="text-sm text-warn font-medium">Ei erityisen kiinnostavia löytöjä juuri nyt</p>` },
+  ];
+  let delay = 0;
+  lines.forEach(line=>{
+    delay += line.t;
+    setTimeout(()=>{ out.insertAdjacentHTML('beforeend', line.html); }, delay);
+  });
+  setTimeout(()=>{
+    const diff = best.marketAvg - best.price;
+    const pct = Math.round(diff/best.marketAvg*100);
+    const info = scoreInfo(best.score);
+    out.insertAdjacentHTML('beforeend', `
+      <div class="mt-4 border border-line rounded-xl p-4 flex items-center gap-4 bg-paper2 text-left">
+        <img src="${best.img}" onerror="this.src='${FALLBACK}'" class="w-16 h-16 rounded-lg object-cover" alt="">
+        <div class="flex-1">
+          <p class="text-xs ${info.tier==='exceptional'?'text-warn':'text-ink/50'} font-medium">${info.tier==='exceptional' ? '🔥 ' : ''}${info.label.toUpperCase()}</p>
+          <p class="font-display text-lg">${best.title}</p>
+          <p class="text-sm font-mono">${eur(best.price)} ${diff>0?`<span class="text-good">— ${eur(diff)} alle tyypillisen hinnan</span>`:''}</p>
+          <p class="text-xs app-text3 mt-0.5" style="color:#8a8a86">${best.location} · ${best.source}</p>
+        </div>
+        <div class="relative w-12 h-12 shrink-0">
+          <svg width="48" height="48" style="transform:rotate(-90deg)"><circle cx="24" cy="24" r="20" stroke="#E6E5E1" stroke-width="4" fill="none"/><circle cx="24" cy="24" r="20" stroke="${info.ring}" stroke-width="4" fill="none" stroke-dasharray="125.6" stroke-dashoffset="${125.6*(1-best.score/100)}" stroke-linecap="round"/></svg>
+          <div class="absolute inset-0 flex items-center justify-center text-[11px] font-mono">${best.score}</div>
+        </div>
+      </div>`);
+    btn.disabled = false; btn.classList.remove('opacity-50');
+  }, delay + 300);
+}
+
+// ---------- EMAIL (honest — no fake success) ----------
+// A real implementation needs a backend/serverless endpoint holding the email
+// provider's secret key (e.g. Resend) — that key must never live in this HTML/JS.
+// This calls the endpoint a real deployment would expose, and reports exactly
+// what happens: if it's missing (as in this static demo), it says so plainly.
+const EMAIL_TEST_ENDPOINT = '/api/send-test-email';
+
+function applyEmailPrefsToForm(){
+  const p = state.emailPrefs;
+  const map = { 'pref-daily':'daily', 'pref-pricealerts':'priceAlerts', 'pref-email-findings':'emailFindings', 'pref-only-good':'onlyGood', 'pref-only-exceptional':'onlyExceptional' };
+  Object.entries(map).forEach(([elId,key])=>{
+    const el = document.getElementById(elId);
+    if(el) el.checked = !!p[key];
+  });
+}
+function saveEmailPrefsFromForm(){
+  state.emailPrefs = {
+    daily: document.getElementById('pref-daily')?.checked ?? true,
+    priceAlerts: document.getElementById('pref-pricealerts')?.checked ?? true,
+    emailFindings: document.getElementById('pref-email-findings')?.checked ?? true,
+    onlyGood: document.getElementById('pref-only-good')?.checked ?? true,
+    onlyExceptional: document.getElementById('pref-only-exceptional')?.checked ?? false,
+  };
+  saveEmailPrefs(state.emailPrefs);
+}
+
+async function testEmailSend(){
+  const statusEl = document.getElementById('email-status');
+  const email = document.getElementById('settings-email')?.value?.trim();
+  if(statusEl) statusEl.innerHTML = `<span class="app-text3">Lähetetään…</span>`;
+  if(!email){
+    if(statusEl) statusEl.innerHTML = `<span class="text-warn">Kirjoita ensin sähköpostiosoite.</span>`;
+    return;
+  }
+  try{
+    const res = await fetch(EMAIL_TEST_ENDPOINT, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        to: email,
+        subject: '🔥 Testi-ilmoitus — Diilivahti',
+        example: { title:'Kawasaki Ninja 500', price:6490, score:94, note:'noin 8,5 % alle tyypillisen hinnan', location:'Tampere' },
+      }),
+    });
+    if(res.ok){
+      showToast('✓ Testisähköposti lähetetty');
+      if(statusEl) statusEl.innerHTML = `<span class="text-good">Sähköposti lähetetty osoitteeseen ${email}.</span>`;
+    } else {
+      if(statusEl) statusEl.innerHTML = `<span class="text-warn">Backend vastasi virheellä (${res.status}). Sähköpostia ei lähetetty.</span>`;
+    }
+  } catch(err){
+    // Expected in this static-HTML demo: there is no backend at /api/send-test-email.
+    if(statusEl) statusEl.innerHTML = `<span class="text-warn">Sähköpostilähetys vaatii backendin / sähköpostipalvelun. Tässä demossa ${EMAIL_TEST_ENDPOINT}-rajapintaa ei ole olemassa, joten viestiä ei lähetetty.</span>`;
+  }
+}
+
+// ---------- ROUTER ----------
+const APP_ROUTES = ['yleiskatsaus','diilivahdit','luo-vahti','loydot','suosikit','hintaseuranta','historia','analytiikka','asetukset'];
+function route(){
+  let hash = location.hash.replace('#','') || 'landing';
+  const topRoutes = ['landing','signup','login','forgot'];
+  document.querySelectorAll('.route').forEach(r=>r.classList.remove('active'));
+  if(hash.startsWith('app')){
+    document.getElementById('route-app').classList.add('active');
+    const seg = hash.split('/')[1] || 'yleiskatsaus';
+    const view = APP_ROUTES.includes(seg) ? seg : 'yleiskatsaus';
+    document.querySelectorAll('.app-view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+view).classList.add('active');
+    document.querySelectorAll('.app-nav-link').forEach(a=>{
+      const active = a.dataset.appRoute===view;
+      a.style.background = active ? 'var(--app-surface2)' : '';
+      a.style.color = active ? '#F1F0ED' : '';
+    });
+    if(view==='luo-vahti') renderPreview();
+    if(view==='loydot') renderFindings();
+    if(view==='asetukset') applyEmailPrefsToForm();
+    window.scrollTo(0,0);
+  } else if(topRoutes.includes(hash)){
+    document.getElementById('route-'+hash).classList.add('active');
+    window.scrollTo(0,0);
+  } else {
+    document.getElementById('route-landing').classList.add('active');
+  }
+}
+window.addEventListener('hashchange', route);
+
+function initNavScroll(){
+  const nav = document.getElementById('main-nav');
+  if(!nav) return;
+  window.addEventListener('scroll', ()=>{ nav.classList.toggle('glass', window.scrollY>60); });
+}
+function initFaq(){
+  document.querySelectorAll('.faq-q').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const a = btn.nextElementSibling; const icon = btn.querySelector('.faq-icon');
+      const open = !a.classList.contains('hidden');
+      a.classList.toggle('hidden'); icon.textContent = open ? '+' : '\u2212';
+    });
+  });
+}
+function initBilling(){
+  const m = document.getElementById('billing-monthly'); const a = document.getElementById('billing-annual');
+  if(!m||!a) return;
+  m.addEventListener('click', ()=>{
+    m.classList.add('bg-ink','text-white'); a.classList.remove('bg-ink','text-white');
+    document.querySelectorAll('.price-m').forEach(e=>e.classList.remove('hidden'));
+    document.querySelectorAll('.price-a').forEach(e=>e.classList.add('hidden'));
+  });
+  a.addEventListener('click', ()=>{
+    a.classList.add('bg-ink','text-white'); m.classList.remove('bg-ink','text-white');
+    document.querySelectorAll('.price-a').forEach(e=>e.classList.remove('hidden'));
+    document.querySelectorAll('.price-m').forEach(e=>e.classList.add('hidden'));
+  });
+}
+function initReveal(){
+  const items = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries)=>{ entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} }); }, {threshold:.1});
+  items.forEach(i=>io.observe(i));
+}
+function initFunnelReveal(){
+  const bars = document.querySelectorAll('.funnel-bar');
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.style.width = e.target.style.width; io.unobserve(e.target);} });
+  }, {threshold:.3});
+  bars.forEach(b=>io.observe(b));
+}
+
+function renderAll(){
+  renderBestFinds(); renderMonitorsList(); renderFindings(); renderFavorites(); renderAlertsList(); renderHistory();
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  renderAll();
+  initFindingFilters();
+  initFaq();
+  initBilling();
+  initNavScroll();
+  initReveal();
+  initFunnelReveal();
+  applyEmailPrefsToForm();
+  route();
+});
+
+</script>
+</body>
+</html>
