@@ -1041,6 +1041,8 @@ function createMonitor(){
   const max = document.getElementById('cm-max').value;
   const yearFrom = document.getElementById('cm-year-from').value;
   const yearTo = document.getElementById('cm-year-to').value;
+  const kmFrom = document.getElementById('cm-km-from').value;
+  const kmTo = document.getElementById('cm-km-to').value;
   const loc = document.getElementById('cm-loc').value || 'Suomi';
 
   const sources = Array.from(
@@ -1063,6 +1065,8 @@ function createMonitor(){
     minPrice: min ? Number(min) : null,
     yearFrom: yearFrom ? Number(yearFrom) : null,
     yearTo: yearTo ? Number(yearTo) : null,
+    kmFrom: kmFrom ? Number(kmFrom) : null,
+    kmTo: kmTo ? Number(kmTo) : null,
     loc,
     sources: sources.length ? sources : ['Tori'],
     quality,
