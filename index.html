@@ -1167,7 +1167,7 @@ function renderFavorites(){
         ${dropped ? `<p class="text-sm"><span class="line-through app-text3 font-mono">${eur(prevPrice)}</span> → <span class="font-mono text-good">${eur(l.price)}</span> ↓ ${Math.round((prevPrice-l.price)/prevPrice*100)}%</p><p class="text-xs text-good font-medium mt-1">Hinta laski!</p>` : `<p class="font-mono">${eur(l.price)}</p>`}
         <div class="relative w-9 h-9 mt-3">${ring(l.score,36,4)}<div class="absolute inset-0 flex items-center justify-center text-[9px] font-mono">${l.score}</div></div>
         <div class="flex gap-3 mt-3 text-xs">
-          <button onclick="openListingModal('${l.id}')" class="text-accent font-medium">Katso</button>
+          <a href="${l.url}" target="_blank" rel="noopener noreferrer" class="text-accent font-medium">Katso</a>
           <button onclick="toggleFavorite('${l.id}')" class="text-warn font-medium">Poista suosikeista</button>
         </div>
       </div>
