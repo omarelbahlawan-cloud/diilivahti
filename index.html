@@ -745,10 +745,7 @@ function matchesSearch(listing, watch){
   const yearOk = !listing.year || ((!yearFrom || listing.year >= yearFrom) && (!yearTo || listing.year <= yearTo));
   const listingKm = typeof listing.km === 'number'
   ? listing.km
-  : (() => {
-      const match = (listing.detail || '').match(/([\d\s]+)\s*km/i);
-      return match ? Number(match[1].replace(/\s/g, '')) : null;
-    })();
+  : null;
 
 const kmOk = (!kmFrom && !kmTo) ||
   (listingKm !== null &&
