@@ -740,15 +740,28 @@ function matchesSearch(listing, watch){
 
   const yearFrom = watch.yearFrom ? Number(watch.yearFrom) : null;
   const yearTo = watch.yearTo ? Number(watch.yearTo) : null;
+  const kmFrom = watch.kmFrom ? Number(watch.kmFrom) : null;
+  const kmTo = watch.kmTo ? Number(watch.kmTo) : null;
   const yearOk = !listing.year || ((!yearFrom || listing.year >= yearFrom) && (!yearTo || listing.year <= yearTo));
+  const listingKm = typeof listing.km === 'number'
+  ? listing.km
+  : (() => {
+      const match = (listing.detail || '').match(/([\d\s]+)\s*km/i);
+      return match ? Number(match[1].replace(/\s/g, '')) : null;
+    })();
 
+const kmOk = (!kmFrom && !kmTo) ||
+  (listingKm !== null &&
+   (!kmFrom || listingKm >= kmFrom) &&
+   (!kmTo || listingKm <= kmTo));
   const sourceOk = !watch.sources || !watch.sources.length || watch.sources.includes(listing.source);
 
-  return keywordOk && priceOk && yearOk && sourceOk;
+  return keywordOk && priceOk && yearOk && kmOk && sourceOk;
 }
 
 function findingsForMonitor(m){
-  const watch = { keyword: m.name, minPrice: m.minPrice, maxPrice: m.maxPrice, yearFrom: m.yearFrom, yearTo: m.yearTo, sources: m.sources };
+  const watch = { keyword: m.name, minPrice: m.minPrice, maxPrice: m.maxPrice, yearFrom: m.yearFrom, yearTo: m.yearTo,   kmFrom: m.kmFrom,
+  kmTo: m.kmTo, sources: m.sources };
   let matches = LISTINGS.filter(l => matchesSearch(l, watch));
   if(m.quality === 'good') matches = matches.filter(l => l.score >= 75);
   if(m.quality === 'exceptional') matches = matches.filter(l => l.score >= 90);
